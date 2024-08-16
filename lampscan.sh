@@ -71,6 +71,17 @@ load_config() {
     fi
 }
 
+# Enhanced error handling for missing required commands
+check_required_commands() {
+    local cmds=("nmap" "dig" "ping6")
+    for cmd in "${cmds[@]}"; do
+        if ! command -v $cmd &> /dev/null; then
+            print_error "$cmd could not be found. Please install it and try again."
+            exit 1
+        fi
+    done
+}
+
 # Ensure the script is run as root
 if [ "$EUID" -ne 0 ]; then
     print_error "This script must be run as root."
@@ -87,6 +98,9 @@ TARGET="$1"
 
 # Load the configuration file
 load_config
+
+# Check required commands
+check_required_commands
 
 # Function to check if input is an IP address
 is_ip() {
@@ -110,55 +124,48 @@ print_header
 # Print the header to the log file only
 print_header "log"
 
-# Check if required commands are available
-for cmd in nmap dig; do
-    if ! command -v $cmd &> /dev/null; then
-        print_error "$cmd could not be found. Please install it and try again."
-        exit 1
-    fi
-done
-
 # Notify user that IPv6 support is being checked
 print_status "Checking for IPv6 support on this machine..."
 
 # Detect if IPv6 is supported on the machine
-if ping6 -c 1 ::1 &> /dev/null; then
-    IPV6_SUPPORTED=true
-else
+if ! ping6 -c 1 ::1 &> /dev/null; then
     IPV6_SUPPORTED=false
+    print_warning "IPv6 is not supported on this machine."
+else
+    IPV6_SUPPORTED=true
 fi
 
 # Resolve the IP addresses of the target if it's not an IP
 if is_ip "$TARGET"; then
     ipv4="$TARGET"
 else
-    ipv4=$(dig +short A $TARGET)
-    ipv6=$(dig +short AAAA $TARGET)
+    ipv4=$(dig +short A "$TARGET")
+    ipv6=$(dig +short AAAA "$TARGET")
+
+    if [ -z "$ipv4" ]; then
+        print_error "Failed to resolve IPv4 address for $TARGET."
+        exit 1
+    fi
+
+    if [ -z "$ipv6" ]; then
+        print_warning "Failed to resolve IPv6 address for $TARGET."
+    fi
 fi
 
-if [ -z "$ipv4" ]; then
-    print_error "No IPv4 address found for $TARGET."
-    exit 1
-fi
-
-if [ "$IPV6_SUPPORTED" = true ] && [ -z "$ipv6" ]; then
-    print_warning "No IPv6 address found for $TARGET."
-fi
-
-# Function to run an IPv4 scan
+# Function to run an IPv4 scan with expanded Nmap script library
 run_scan_ipv4() {
     print_status "Starting IPv4 scan on $1..."
     nmap -Pn -sC \
-        --script "http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*" \
+        --script "http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*" \
         --script-args="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true" \
         -p 80,443,22,21,3306,8080,8443,25,110,143,993,995 "$1" --min-rate=100 --randomize-hosts -oN "${OUTPUT_FILE}.ipv4" -vv
 }
 
-# Function to run an IPv6 scan
+# Function to run an IPv6 scan with expanded Nmap script library
 run_scan_ipv6() {
     print_status "Starting IPv6 scan on $1..."
     nmap -Pn -sC -6 \
-        --script "http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*" \
+        --script "http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*" \
         --script-args="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true" \
         -p 80,443,22,21,3306,8080,8443,25,110,143,993,995 "$1" --min-rate=100 --randomize-hosts -oN "${OUTPUT_FILE}.ipv6" -vv
 }

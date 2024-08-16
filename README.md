@@ -2,7 +2,7 @@
 # LAMP/WordPress Server Nmap Scan Tool
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io-badge/version-2.0-green.svg)
+![Version](https://img.shields.io-badge/version-2.1-green.svg)
 ![Nmap](https://img.shields.io/badge/Nmap-7.94+-orange.svg)
 
 ## Overview
@@ -11,14 +11,67 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perfor
 
 ## Features
 
-- **Configurable Settings**: Now supports loading configuration settings from an external `lampscan.conf` file, making it easier to adjust scan parameters without modifying the script.
+- **Configurable Settings**: Supports loading configuration settings from an external `lampscan.conf` file, making it easier to adjust scan parameters without modifying the script.
 - **Enhanced Logging**: Consolidated and improved logging with timestamps and log levels, saved in a single log file named `<target>_<date>_<time>_scan.log`.
 - **Streamlined Header Management**: Centralized and unified header printing to reduce code duplication and improve maintainability.
 - **Automated Nmap Scanning**: The script automates Nmap scans, including service enumeration, common vulnerability detection, and WordPress-specific checks.
 - **IPv6 Awareness**: Detects IPv6 support on the host machine and adjusts the scanning process accordingly, with clear logging if IPv6 is not supported.
 - **Comprehensive Port Scanning**: Scans a wide range of ports typically associated with LAMP stack services and WordPress installations.
 - **Evasion Techniques**: Randomizes host scan order and uses decoys to reduce detection likelihood by intrusion detection systems (IDS).
-- **Improved File Naming**: The scan results are now saved as `<target>_<date>_<time>_scan_results.ipv4` and `<target>_<date>_<time>_scan_results.ipv6` for better clarity and organization.
+- **Expanded Script Library**: Includes additional Nmap scripts to detect DNS, SMB, and firewall-related vulnerabilities.
+- **Improved Error Handling**: Checks for required commands and handles IP resolution failures gracefully with detailed error messages.
+
+## Scans Performed
+
+### IPv4 Scans
+
+The script performs the following scans for IPv4:
+
+- **Port Scanning**: Scans ports 80, 443, 22, 21, 3306, 8080, 8443, 25, 110, 143, 993, 995.
+- **Nmap Scripts**: 
+  - `http-enum`
+  - `http-vuln*`
+  - `*sql*`
+  - `*php*`
+  - `http-wordpress*`
+  - `vuln*`
+  - `auth*`
+  - `*apache*`
+  - `*ssh*`
+  - `*ftp*`
+  - `dns*`
+  - `smb*`
+  - `firewall*`
+- **Script Arguments**:
+  - `http-wordpress-enum.threads=10`
+  - `http-wordpress-brute.threads=10`
+  - `ftp-anon.maxlist=10`
+  - `http-slowloris.runforever=true`
+
+### IPv6 Scans
+
+The script performs the following scans for IPv6 (if supported and configured):
+
+- **Port Scanning**: Scans ports 80, 443, 22, 21, 3306, 8080, 8443, 25, 110, 143, 993, 995.
+- **Nmap Scripts**: 
+  - `http-enum`
+  - `http-vuln*`
+  - `*sql*`
+  - `*php*`
+  - `http-wordpress*`
+  - `vuln*`
+  - `auth*`
+  - `*apache*`
+  - `*ssh*`
+  - `*ftp*`
+  - `dns*`
+  - `smb*`
+  - `firewall*`
+- **Script Arguments**:
+  - `http-wordpress-enum.threads=10`
+  - `http-wordpress-brute.threads=10`
+  - `ftp-anon.maxlist=10`
+  - `http-slowloris.runforever=true`
 
 ## Installation
 
@@ -73,9 +126,7 @@ sudo ./lampscan.sh example.com
 
 ## Roadmap
 
-- **Enhanced Error Handling**: Improve feedback and error reporting for edge cases.
-- **Integration**: Consider adding support for integrating scan results with other tools like Metasploit.
-- **Expanded Script Library**: Incorporate additional Nmap scripts for emerging threats and configurations.
+- **Further Enhancements**: Continue improving error handling and expanding the script library with additional Nmap scripts for new and emerging threats.
 
 ## Contributing
 
