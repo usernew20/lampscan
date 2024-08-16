@@ -2,7 +2,7 @@
 # LAMP/WordPress Server Nmap Scan Tool
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.0-green.svg)
+![Version](https://img.shields.io-badge/version-2.0-green.svg)
 ![Nmap](https://img.shields.io/badge/Nmap-7.94+-orange.svg)
 
 ## Overview
@@ -11,11 +11,14 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perfor
 
 ## Features
 
+- **Configurable Settings**: Now supports loading configuration settings from an external `lampscan.conf` file, making it easier to adjust scan parameters without modifying the script.
+- **Enhanced Logging**: Consolidated and improved logging with timestamps and log levels, saved in a single log file named `<target>_<date>_<time>_scan.log`.
+- **Streamlined Header Management**: Centralized and unified header printing to reduce code duplication and improve maintainability.
 - **Automated Nmap Scanning**: The script automates Nmap scans, including service enumeration, common vulnerability detection, and WordPress-specific checks.
-- **IPv6 Awareness**: Detects IPv6 support on the host machine and adjusts the scanning process accordingly.
-- **Professional Output**: Colorized and formatted console output for easy readability, with clean logs for documentation.
-- **Evasion Techniques**: Randomizes host scan order and uses decoys to reduce detection likelihood by intrusion detection systems (IDS).
+- **IPv6 Awareness**: Detects IPv6 support on the host machine and adjusts the scanning process accordingly, with clear logging if IPv6 is not supported.
 - **Comprehensive Port Scanning**: Scans a wide range of ports typically associated with LAMP stack services and WordPress installations.
+- **Evasion Techniques**: Randomizes host scan order and uses decoys to reduce detection likelihood by intrusion detection systems (IDS).
+- **Improved File Naming**: The scan results are now saved as `<target>_<date>_<time>_scan_results.ipv4` and `<target>_<date>_<time>_scan_results.ipv6` for better clarity and organization.
 
 ## Installation
 
@@ -28,39 +31,40 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perfor
 
 1. **Clone the repository:**
 
-   \`\`\`bash
+   ```bash
    git clone https://github.com/yourusername/lampscan.git
    cd lampscan
-   \`\`\`
+   ```
 
 2. **Make the script executable:**
 
-   \`\`\`bash
+   ```bash
    chmod +x lampscan.sh
-   \`\`\`
+   ```
 
 3. **Run the script:**
 
-   \`\`\`bash
+   ```bash
    sudo ./lampscan.sh <domain_or_ip>
-   \`\`\`
+   ```
 
 ## Usage
 
-\`\`\`bash
+```bash
 sudo ./lampscan.sh <domain_or_ip>
-\`\`\`
+```
 
 ### Example
 
-\`\`\`bash
+```bash
 sudo ./lampscan.sh example.com
-\`\`\`
+```
 
 ### Output
 
 - **Console Output**: Displays the progress of the scan, including any open, filtered, or closed ports, and key findings.
-- **Log File**: Generates a log file named \`<target>_<date>_<time>_scan_results_log.txt\` containing a detailed scan report.
+- **Log File**: Generates a log file named `<target>_<date>_<time>_scan.log` containing detailed logs of the scan.
+- **Result Files**: Scan results are saved in files named `<target>_<date>_<time>_scan_results.ipv4` and `<target>_<date>_<time>_scan_results.ipv6`, depending on the IP version scanned.
 
 ### Options
 
