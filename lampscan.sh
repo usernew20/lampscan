@@ -275,4 +275,3 @@ chown $SUDO_USER:$SUDO_USER "$LOG_FILE" "$HTML_REPORT_FILE"
 rm -f "$TEMP_OUTPUT_FILE"
 
 exit 0
-|
