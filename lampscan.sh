@@ -211,6 +211,7 @@ generate_html_report() {
             h1, h2 { color: #2e6c80; }
             pre { background-color: #f4f4f4; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; }
             .scan-section { margin-bottom: 20px; }
+            .vuln-section { margin-bottom: 10px; border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
           </style>" >> "$HTML_REPORT_FILE"
     echo "</head><body>" >> "$HTML_REPORT_FILE"
     echo "<h1>Scan Report for $TARGET</h1>" >> "$HTML_REPORT_FILE"
@@ -238,16 +239,21 @@ generate_html_report() {
     fi
 
     # Detailed Vulnerability Information
-    echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep "VULNERABILITY" "$TEMP_OUTPUT_FILE" | while read -r line; do
-        vulnerability=$(echo $line | awk '{print $NF}')
-        cve_url="https://cve.mitre.org/cgi-bin/cvename.cgi?name=$vulnerability"
-        echo "Vulnerability: $vulnerability" >> "$HTML_REPORT_FILE"
-        echo "Details: [CVE Link]($cve_url)" >> "$HTML_REPORT_FILE"
-        echo "Mitigation: Please refer to the CVE entry for remediation steps." >> "$HTML_REPORT_FILE"
-        echo "------------------------------------" >> "$HTML_REPORT_FILE"
+    echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
+
+    # Parsing vulnerabilities from the Nmap output
+    grep -E "VULNERABLE|vuln" "$TEMP_OUTPUT_FILE" | while read -r line; do
+        echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
+        echo "$line" >> "$HTML_REPORT_FILE"
+        echo "</pre></div>" >> "$HTML_REPORT_FILE"
     done
-    echo "</pre></div>" >> "$HTML_REPORT_FILE"
+
+    # If no vulnerabilities found, add a note
+    if ! grep -qE "VULNERABLE|vuln" "$TEMP_OUTPUT_FILE"; then
+        echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
+    fi
+
+    echo "</div>" >> "$HTML_REPORT_FILE"
 
     # Scan Environment Details
     echo "<div class=\"scan-section\"><h2>Scan Environment Details</h2><pre>" >> "$HTML_REPORT_FILE"
@@ -262,6 +268,7 @@ generate_html_report() {
     echo "</body></html>" >> "$HTML_REPORT_FILE"
     print_status "HTML report saved to: $HTML_REPORT_FILE"
 }
+
 
 # Generate HTML report if enabled
 if [ "$GENERATE_HTML_REPORT" = "true" ]; then
