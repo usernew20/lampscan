@@ -27,7 +27,12 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a command-line utility designed 
 - **Automated Nmap Scans**: The tool automates Nmap commands to perform comprehensive security scans.
 - **IPv6 Awareness**: Automatically detects and adjusts scans based on IPv6 support.
 - **Configurable Settings**: Allows customization through the `lampscan.conf` file.
-- **Detailed Logging**: Saves logs with timestamps and log levels for easy analysis.
+- **HTML Report Generation**: Generates detailed HTML reports with:
+  - **Summary of Findings**: Overview of open, closed, and filtered ports.
+  - **Detailed Vulnerability Information**: Links to CVE entries and mitigation suggestions.
+  - **Scan Environment Details**: Information on Nmap version, scripts used, and scanning host.
+- **Enhanced Error Handling**: Improved error messages and feedback for troubleshooting.
+- **Detailed Logging**: Consolidated logging with timestamps and log levels for easy analysis.
 
 ---
 
@@ -96,9 +101,10 @@ sudo ./lampscan.sh example.com
 
 1. **Console Output**: Displays real-time progress, including open, filtered, or closed ports.
 2. **Log File**: Saved as `<target>_<date>_<time>_scan.log`. It contains detailed logs of the scan.
-3. **Results Files**:
-   - IPv4 results: `<target>_<date>_<time>_scan_results.ipv4`
-   - IPv6 results: `<target>_<date>_<time>_scan_results.ipv6`
+3. **HTML Report**: Generated as `<target>_<date>_<time>_scan_report.html` containing:
+   - **Summary of Findings**: Overview of open, closed, and filtered ports.
+   - **Detailed Vulnerability Information**: Links to relevant CVE entries and suggested mitigations.
+   - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
 
 ---
 
@@ -115,13 +121,17 @@ During the scan, you’ll see various messages indicating the progress and resul
 
 The log file captures all the console output and additional details such as:
 
-- Timestamps for each operation
-- Status, warning, and error messages
-- Any issues encountered during the scan
+- Timestamps for each operation.
+- Status, warning, and error messages.
+- Any issues encountered during the scan.
 
-### Results Files
+### HTML Report
 
-- The results files contain the scan summary for both IPv4 and IPv6. They include detailed information about open ports, services, and any detected vulnerabilities.
+The HTML report is a comprehensive document that includes:
+
+- **Summary of Findings**: A high-level overview of the scan results.
+- **Detailed Vulnerability Information**: Detailed descriptions of detected vulnerabilities with links to CVE entries and suggested mitigations.
+- **Scan Environment Details**: Information about the Nmap version, options used, scripts executed, and the scanning host.
 
 ---
 
@@ -145,6 +155,7 @@ NMAP_OPTIONS="-Pn -sC"
 NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*"
 NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true"
 NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995"
+GENERATE_HTML_REPORT="true"
 ```
 
 ---

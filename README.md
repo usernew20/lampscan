@@ -1,13 +1,12 @@
-
 # LAMP/WordPress Server Nmap Scan Tool
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.1-green.svg)
+![Version](https://img.shields.io/badge/version-2.2-green.svg)
 ![Nmap](https://img.shields.io/badge/Nmap-7.94+-orange.svg)
 
 ## Overview
 
-The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perform a comprehensive security assessment on servers running the LAMP stack (Linux, Apache, MySQL/MariaDB, PHP) with a particular focus on WordPress instances. Leveraging the power of Nmap, this tool automates the process of scanning for open ports, detecting services, and identifying potential vulnerabilities.
+The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perform a comprehensive security assessment on servers running the LAMP stack (Linux, Apache, MySQL/MariaDB, PHP) with a particular focus on WordPress instances. Leveraging the power of Nmap, this tool automates the process of scanning for open ports, detecting services, identifying potential vulnerabilities, and generating detailed HTML reports.
 
 ## Features
 
@@ -16,10 +15,12 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perfor
 - **Enhanced Logging**: Consolidated and improved logging with timestamps and log levels, saved in a single log file named `<target>_<date>_<time>_scan.log`.
 - **Streamlined Header Management**: Centralized and unified header printing to reduce code duplication and improve maintainability.
 - **Automated Nmap Scanning**: The script automates Nmap scans, including service enumeration, common vulnerability detection, and WordPress-specific checks.
+- **HTML Report Generation**: Generates a detailed HTML report containing:
+  - **Summary of Findings**: Overview of the total number of open, closed, and filtered ports.
+  - **Detailed Vulnerability Information**: Links to relevant CVE entries and suggested mitigations.
+  - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
 - **IPv6 Awareness**: Detects IPv6 support on the host machine and adjusts the scanning process accordingly, with clear logging if IPv6 is not supported.
 - **Comprehensive Port Scanning**: Scans a wide range of ports typically associated with LAMP stack services and WordPress installations.
-- **Evasion Techniques**: Randomizes host scan order and uses decoys to reduce detection likelihood by intrusion detection systems (IDS).
-- **Expanded Script Library**: Includes additional Nmap scripts to detect DNS, SMB, and firewall-related vulnerabilities.
 - **Improved Error Handling**: Checks for required commands, handles IP resolution failures gracefully, and provides detailed error messages.
 
 ## Scans Performed
@@ -118,7 +119,10 @@ sudo ./lampscan.sh example.com
 
 - **Console Output**: Displays the progress of the scan, including any open, filtered, or closed ports, and key findings.
 - **Log File**: Generates a log file named `<target>_<date>_<time>_scan.log` containing detailed logs of the scan.
-- **Result Files**: Scan results are saved in files named `<target>_<date>_<time>_scan_results.ipv4` and `<target>_<date>_<time>_scan_results.ipv6`, depending on the IP version scanned.
+- **HTML Report**: Generates an HTML report named `<target>_<date>_<time>_scan_report.html` containing:
+  - **Summary of Findings**: Overview of the total number of open, closed, and filtered ports.
+  - **Detailed Vulnerability Information**: Links to relevant CVE entries and suggested mitigations.
+  - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
 
 ### Options
 
@@ -128,6 +132,7 @@ sudo ./lampscan.sh example.com
 ## Roadmap
 
 - **Further Enhancements**: Continue improving error handling and expanding the script library with additional Nmap scripts for new and emerging threats.
+- **Advanced Reporting**: Incorporate trend analysis, real-time alerts, and integration with external tools in future versions.
 
 ## Contributing
 
@@ -145,3 +150,4 @@ For issues, questions, or suggestions, please open an issue in the repository.
 
 - Special thanks to the Nmap team for creating such a powerful and versatile tool.
 - Thanks to all contributors and the open-source community for their support and inspiration.
+```
