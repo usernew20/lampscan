@@ -61,13 +61,37 @@ print_error() {
     log_message "ERROR" "$1"
 }
 
+# Function to create a default configuration file
+create_default_config() {
+    local config_file="lampscan.conf"
+    cat <<EOL > "$config_file"
+# LAMP/WordPress Server Nmap Scan Tool Configuration
+# Default configuration settings
+
+# Nmap command options
+NMAP_OPTIONS="-Pn -sC"
+NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*"
+NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true"
+NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995"
+
+# Log level (INFO, WARNING, ERROR)
+LOG_LEVEL="INFO"
+EOL
+    echo "Configuration file lampscan.conf not found. Creating a default configuration."
+    print_status "Default configuration file created at $config_file"
+}
+
 # Function to load configuration file
 load_config() {
     local config_file="lampscan.conf"
     if [ -f "$config_file" ]; then
-        source "$config_file"
+        if ! source "$config_file"; then
+            print_error "Failed to load configuration from $config_file. Please check the file syntax."
+            exit 1
+        fi
     else
-        print_warning "Configuration file lampscan.conf not found. Using default settings."
+        create_default_config
+        source "$config_file"
     fi
 }
 
@@ -76,7 +100,13 @@ check_required_commands() {
     local cmds=("nmap" "dig" "ping6")
     for cmd in "${cmds[@]}"; do
         if ! command -v $cmd &> /dev/null; then
-            print_error "$cmd could not be found. Please install it and try again."
+            if [ "$cmd" = "nmap" ]; then
+                print_error "Nmap is not installed. Please install it using:\n- Ubuntu: sudo apt-get install nmap\n- macOS: brew install nmap"
+            elif [ "$cmd" = "dig" ]; then
+                print_error "dig command is not installed. Please install it using:\n- Ubuntu: sudo apt-get install dnsutils\n- macOS: dig comes pre-installed. If missing, reinstall the DNS utilities."
+            elif [ "$cmd" = "ping6" ]; then
+                print_error "ping6 command is not installed. Please install it using:\n- Ubuntu: sudo apt-get install inetutils-ping\n- macOS: ping6 comes pre-installed. If missing, reinstall the network utilities."
+            fi
             exit 1
         fi
     done
@@ -84,7 +114,7 @@ check_required_commands() {
 
 # Ensure the script is run as root
 if [ "$EUID" -ne 0 ]; then
-    print_error "This script must be run as root."
+    print_error "This script must be run as root. Please rerun the script using sudo: sudo ./lampscan.sh <domain_or_ip>"
     exit 1
 fi
 
@@ -95,6 +125,19 @@ if [ -z "$1" ]; then
 fi
 
 TARGET="$1"
+
+# Get the current date and time for the suffix
+DATE_TIME=$(date +"%Y%m%d_%H%M%S")
+
+# Output file name based on target and current date/time
+OUTPUT_FILE="${TARGET}_${DATE_TIME}_scan_results"
+LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
+
+# Print the header to console
+print_header
+
+# Print the header to the log file only
+print_header "log"
 
 # Load the configuration file
 load_config
@@ -110,19 +153,6 @@ is_ip() {
         return 1
     fi
 }
-
-# Get the current date and time for the suffix
-DATE_TIME=$(date +"%Y%m%d_%H%M%S")
-
-# Output file name based on target and current date/time
-OUTPUT_FILE="${TARGET}_${DATE_TIME}_scan_results"
-LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
-
-# Print the header to console
-print_header
-
-# Print the header to the log file only
-print_header "log"
 
 # Notify user that IPv6 support is being checked
 print_status "Checking for IPv6 support on this machine..."
@@ -140,34 +170,39 @@ if is_ip "$TARGET"; then
     ipv4="$TARGET"
 else
     ipv4=$(dig +short A "$TARGET")
-    ipv6=$(dig +short AAAA "$TARGET")
-
     if [ -z "$ipv4" ]; then
-        print_error "Failed to resolve IPv4 address for $TARGET."
+        print_error "Failed to resolve IPv4 address for $TARGET. Please check your network connection or DNS settings."
         exit 1
     fi
 
+    ipv6=$(dig +short AAAA "$TARGET")
     if [ -z "$ipv6" ]; then
-        print_warning "Failed to resolve IPv6 address for $TARGET."
+        print_warning "No IPv6 address found for $TARGET. IPv6 scan will be skipped."
     fi
 fi
 
 # Function to run an IPv4 scan with expanded Nmap script library
 run_scan_ipv4() {
     print_status "Starting IPv4 scan on $1..."
-    nmap -Pn -sC \
-        --script "http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*" \
-        --script-args="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true" \
-        -p 80,443,22,21,3306,8080,8443,25,110,143,993,995 "$1" --min-rate=100 --randomize-hosts -oN "${OUTPUT_FILE}.ipv4" -vv
+    if ! nmap $NMAP_OPTIONS \
+        --script "$NMAP_SCRIPTS" \
+        --script-args="$NMAP_SCRIPT_ARGS" \
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "${OUTPUT_FILE}.ipv4" -vv; then
+        print_error "Nmap scan failed on $1. Please ensure the target is reachable and that Nmap is properly configured."
+        exit 1
+    fi
 }
 
 # Function to run an IPv6 scan with expanded Nmap script library
 run_scan_ipv6() {
     print_status "Starting IPv6 scan on $1..."
-    nmap -Pn -sC -6 \
-        --script "http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*" \
-        --script-args="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true" \
-        -p 80,443,22,21,3306,8080,8443,25,110,143,993,995 "$1" --min-rate=100 --randomize-hosts -oN "${OUTPUT_FILE}.ipv6" -vv
+    if ! nmap $NMAP_OPTIONS -6 \
+        --script "$NMAP_SCRIPTS" \
+        --script-args="$NMAP_SCRIPT_ARGS" \
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "${OUTPUT_FILE}.ipv6" -vv; then
+        print_error "Nmap scan failed on $1. Please ensure the target is reachable and that Nmap is properly configured."
+        exit 1
+    fi
 }
 
 # Run the scan on IPv4
@@ -206,5 +241,7 @@ print_status "Results saved to: ${OUTPUT_FILE}.ipv4"
 if [ "$IPV6_SUPPORTED" = true ] && [ -n "$ipv6" ]; then
     print_status "IPv6 results saved to: ${OUTPUT_FILE}.ipv6"
 fi
+
+print_status "Log file saved to: $LOG_FILE"
 
 exit 0

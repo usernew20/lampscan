@@ -2,7 +2,7 @@
 # LAMP/WordPress Server Nmap Scan Tool
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io-badge/version-2.1-green.svg)
+![Version](https://img.shields.io/badge/version-2.1-green.svg)
 ![Nmap](https://img.shields.io/badge/Nmap-7.94+-orange.svg)
 
 ## Overview
@@ -12,6 +12,7 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perfor
 ## Features
 
 - **Configurable Settings**: Supports loading configuration settings from an external `lampscan.conf` file, making it easier to adjust scan parameters without modifying the script.
+- **Default Configuration File Creation**: Automatically generates a default `lampscan.conf` file if it is missing, ensuring the script runs with default settings.
 - **Enhanced Logging**: Consolidated and improved logging with timestamps and log levels, saved in a single log file named `<target>_<date>_<time>_scan.log`.
 - **Streamlined Header Management**: Centralized and unified header printing to reduce code duplication and improve maintainability.
 - **Automated Nmap Scanning**: The script automates Nmap scans, including service enumeration, common vulnerability detection, and WordPress-specific checks.
@@ -19,7 +20,7 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perfor
 - **Comprehensive Port Scanning**: Scans a wide range of ports typically associated with LAMP stack services and WordPress installations.
 - **Evasion Techniques**: Randomizes host scan order and uses decoys to reduce detection likelihood by intrusion detection systems (IDS).
 - **Expanded Script Library**: Includes additional Nmap scripts to detect DNS, SMB, and firewall-related vulnerabilities.
-- **Improved Error Handling**: Checks for required commands and handles IP resolution failures gracefully with detailed error messages.
+- **Improved Error Handling**: Checks for required commands, handles IP resolution failures gracefully, and provides detailed error messages.
 
 ## Scans Performed
 
