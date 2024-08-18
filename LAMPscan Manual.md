@@ -148,6 +148,4 @@ LAMPscan can be integrated into CI/CD pipelines to automate security checks duri
 
 ### **Contact and Support**
 
-For further assistance, please contact the LAMPscan development team at [support@lampscan.com](mailto:support@lampscan.com).
-
----
+For further assistance, please raise an issue on the LAMPscan repository or contact the maintainers directly.
