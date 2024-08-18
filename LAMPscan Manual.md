@@ -1,4 +1,3 @@
-
 # LAMP/WordPress Server Nmap Scan Tool - End User Documentation
 
 ---
@@ -29,7 +28,7 @@ The **LAMP/WordPress Server Nmap Scan Tool** is a command-line utility designed 
 - **Configurable Settings**: Allows customization through the `lampscan.conf` file.
 - **HTML Report Generation**: Generates detailed HTML reports with:
   - **Summary of Findings**: Overview of open, closed, and filtered ports.
-  - **Detailed Vulnerability Information**: Links to CVE entries and mitigation suggestions.
+  - **Detailed Vulnerability Information**: Information on detected vulnerabilities, severity ratings, CVSS scores, and links to CVE entries where available.
   - **Scan Environment Details**: Information on Nmap version, scripts used, and scanning host.
 - **Enhanced Error Handling**: Improved error messages and feedback for troubleshooting.
 - **Detailed Logging**: Consolidated logging with timestamps and log levels for easy analysis.
@@ -102,9 +101,9 @@ sudo ./lampscan.sh example.com
 1. **Console Output**: Displays real-time progress, including open, filtered, or closed ports.
 2. **Log File**: Saved as `<target>_<date>_<time>_scan.log`. It contains detailed logs of the scan.
 3. **HTML Report**: Generated as `<target>_<date>_<time>_scan_report.html` containing:
-   - **Summary of Findings**: Overview of open, closed, and filtered ports.
-   - **Detailed Vulnerability Information**: Links to relevant CVE entries and suggested mitigations.
-   - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
+    - **Summary of Findings**: Overview of open, closed, and filtered ports.
+    - **Detailed Vulnerability Information**: Detailed descriptions of detected vulnerabilities, severity ratings, CVSS scores, and links to CVE entries where available.
+    - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
 
 ---
 
@@ -130,7 +129,7 @@ The log file captures all the console output and additional details such as:
 The HTML report is a comprehensive document that includes:
 
 - **Summary of Findings**: A high-level overview of the scan results.
-- **Detailed Vulnerability Information**: Detailed descriptions of detected vulnerabilities with links to CVE entries and suggested mitigations.
+- **Detailed Vulnerability Information**: Detailed descriptions of detected vulnerabilities, severity ratings, CVSS scores, and links to CVE entries where available.
 - **Scan Environment Details**: Information about the Nmap version, options used, scripts executed, and the scanning host.
 
 ---
@@ -165,16 +164,16 @@ GENERATE_HTML_REPORT="true"
 ### Common Issues
 
 1. **Permission Denied**:
-   - Ensure you run the script with `sudo` as it requires root privileges.
-   
+    - Ensure you run the script with `sudo` as it requires root privileges.
+
 2. **Nmap Command Not Found**:
-   - Make sure Nmap is installed and accessible from your command line.
+    - Make sure Nmap is installed and accessible from your command line.
 
 3. **Invalid Domain or IP**:
-   - Double-check the domain or IP address you provided. The tool requires a valid input.
+    - Double-check the domain or IP address you provided. The tool requires a valid input.
 
 4. **No Results**:
-   - The target may be behind a firewall or filtering tool that blocks the scan. Adjust Nmap options in the `lampscan.conf` file if necessary.
+    - The target may be behind a firewall or filtering tool that blocks the scan. Adjust Nmap options in the `lampscan.conf` file if necessary.
 
 ---
 
@@ -189,13 +188,13 @@ GENERATE_HTML_REPORT="true"
 ## FAQs
 
 ### 1. **Can this tool run on Windows?**
-   - No, this tool is designed for Linux environments. However, it can be run on WSL (Windows Subsystem for Linux) on a Windows machine.
+- No, this tool is designed for Linux environments. However, it can be run on WSL (Windows Subsystem for Linux) on a Windows machine.
 
 ### 2. **What does it mean if all ports are filtered?**
-   - This typically indicates that a firewall is blocking the scan. You may need to adjust your scanning strategy.
+- This typically indicates that a firewall is blocking the scan. You may need to adjust your scanning strategy.
 
 ### 3. **Can I add custom Nmap scripts?**
-   - Yes, you can edit the `lampscan.conf` file to include additional Nmap scripts that suit your needs.
+- Yes, you can edit the `lampscan.conf` file to include additional Nmap scripts that suit your needs.
 
 ---
 

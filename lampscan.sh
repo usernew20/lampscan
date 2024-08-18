@@ -86,13 +86,29 @@ EOL
 
 # Enhanced error handling for missing required commands
 check_required_commands() {
-    local cmds=("nmap" "dig" "ping6")
+    local cmds=("nmap" "dig" "ping6" "jq" "curl")
     for cmd in "${cmds[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             print_error "$cmd could not be found. Please install it and try again."
             exit 1
         fi
     done
+}
+
+# Function to look up CVE details from the NVD API
+lookup_cve_details() {
+    local cve_id="$1"
+    local api_url="https://services.nvd.nist.gov/rest/json/cve/1.0/$cve_id"
+
+    # Fetch CVE details from the NVD API
+    local response=$(curl -s "$api_url")
+
+    # Extract severity and CVSS score using jq
+    local severity=$(echo "$response" | jq -r '.result.CVE_Items[0].impact.baseMetricV3.cvssV3.baseSeverity // "N/A"')
+    local cvss_score=$(echo "$response" | jq -r '.result.CVE_Items[0].impact.baseMetricV3.cvssV3.baseScore // "N/A"')
+
+    # Return the details
+    echo "$severity,$cvss_score"
 }
 
 # Ensure the script is run as root
@@ -238,18 +254,45 @@ generate_html_report() {
         echo "</pre></div>" >> "$HTML_REPORT_FILE"
     fi
 
+    # Service Detection Results
+    echo "<div class=\"scan-section\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
+    grep -E "^([0-9]{1,5}/tcp)" "$TEMP_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+    echo "</pre></div>" >> "$HTML_REPORT_FILE"
+
     # Detailed Vulnerability Information
     echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
 
     # Parsing vulnerabilities from the Nmap output
-    grep -E "VULNERABLE|vuln" "$TEMP_OUTPUT_FILE" | while read -r line; do
-        echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
-        echo "$line" >> "$HTML_REPORT_FILE"
-        echo "</pre></div>" >> "$HTML_REPORT_FILE"
+    grep -E "VULNERABLE|vuln|Warning|open" "$TEMP_OUTPUT_FILE" | while read -r line; do
+
+        # Set default values
+        severity="N/A"
+        cvss_score="N/A"
+
+        # Check if the line contains a CVE identifier
+        if echo "$line" | grep -q "CVE-"; then
+            # Extract the CVE ID
+            cve_id=$(echo "$line" | grep -o "CVE-[0-9]\+-[0-9]\+")
+            if [ -n "$cve_id" ]; then
+                # Look up the CVE details from the NVD API
+                cve_info=$(lookup_cve_details "$cve_id")
+                severity=$(echo "$cve_info" | cut -d',' -f1)
+                cvss_score=$(echo "$cve_info" | cut -d',' -f2)
+            fi
+        fi
+
+        # Filter out any line that contains the "scan initiated" text
+        if ! echo "$line" | grep -q "scan initiated"; then
+            echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
+            echo "$line" >> "$HTML_REPORT_FILE"
+            echo "<strong>Severity:</strong> $severity<br>" >> "$HTML_REPORT_FILE"
+            echo "<strong>CVSS Score:</strong> $cvss_score<br>" >> "$HTML_REPORT_FILE"
+            echo "</pre></div>" >> "$HTML_REPORT_FILE"
+        fi
     done
 
     # If no vulnerabilities found, add a note
-    if ! grep -qE "VULNERABLE|vuln" "$TEMP_OUTPUT_FILE"; then
+    if ! grep -qE "VULNERABLE|vuln|Warning|open|filtered|closed" "$TEMP_OUTPUT_FILE"; then
         echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
     fi
 
@@ -268,7 +311,6 @@ generate_html_report() {
     echo "</body></html>" >> "$HTML_REPORT_FILE"
     print_status "HTML report saved to: $HTML_REPORT_FILE"
 }
-
 
 # Generate HTML report if enabled
 if [ "$GENERATE_HTML_REPORT" = "true" ]; then

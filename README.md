@@ -1,153 +1,63 @@
-# LAMP/WordPress Server Nmap Scan Tool
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.2-green.svg)
-![Nmap](https://img.shields.io/badge/Nmap-7.94+-orange.svg)
+# LAMP/WordPress Server Nmap Scan
 
 ## Overview
 
-The **LAMP/WordPress Server Nmap Scan Tool** is a Bash script designed to perform a comprehensive security assessment on servers running the LAMP stack (Linux, Apache, MySQL/MariaDB, PHP) with a particular focus on WordPress instances. Leveraging the power of Nmap, this tool automates the process of scanning for open ports, detecting services, identifying potential vulnerabilities, and generating detailed HTML reports.
+The **LAMP/WordPress Server Nmap Scan Tool** is a comprehensive security assessment script designed for LAMP stack servers, with a particular focus on WordPress installations. This tool automates the process of scanning for open ports, services, and vulnerabilities, delivering a detailed HTML report that includes both scan results and relevant vulnerability information.
 
 ## Features
 
-- **Configurable Settings**: Supports loading configuration settings from an external `lampscan.conf` file, making it easier to adjust scan parameters without modifying the script.
-- **Default Configuration File Creation**: Automatically generates a default `lampscan.conf` file if it is missing, ensuring the script runs with default settings.
-- **Enhanced Logging**: Consolidated and improved logging with timestamps and log levels, saved in a single log file named `<target>_<date>_<time>_scan.log`.
-- **Streamlined Header Management**: Centralized and unified header printing to reduce code duplication and improve maintainability.
-- **Automated Nmap Scanning**: The script automates Nmap scans, including service enumeration, common vulnerability detection, and WordPress-specific checks.
-- **HTML Report Generation**: Generates a detailed HTML report containing:
-  - **Summary of Findings**: Overview of the total number of open, closed, and filtered ports.
-  - **Detailed Vulnerability Information**: Links to relevant CVE entries and suggested mitigations.
-  - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
-- **IPv6 Awareness**: Detects IPv6 support on the host machine and adjusts the scanning process accordingly, with clear logging if IPv6 is not supported.
-- **Comprehensive Port Scanning**: Scans a wide range of ports typically associated with LAMP stack services and WordPress installations.
-- **Improved Error Handling**: Checks for required commands, handles IP resolution failures gracefully, and provides detailed error messages.
-
-## Scans Performed
-
-### IPv4 Scans
-
-The script performs the following scans for IPv4:
-
-- **Port Scanning**: Scans ports 80, 443, 22, 21, 3306, 8080, 8443, 25, 110, 143, 993, 995.
-- **Nmap Scripts**: 
-  - `http-enum`
-  - `http-vuln*`
-  - `*sql*`
-  - `*php*`
-  - `http-wordpress*`
-  - `vuln*`
-  - `auth*`
-  - `*apache*`
-  - `*ssh*`
-  - `*ftp*`
-  - `dns*`
-  - `smb*`
-  - `firewall*`
-- **Script Arguments**:
-  - `http-wordpress-enum.threads=10`
-  - `http-wordpress-brute.threads=10`
-  - `ftp-anon.maxlist=10`
-  - `http-slowloris.runforever=true`
-
-### IPv6 Scans
-
-The script performs the following scans for IPv6 (if supported and configured):
-
-- **Port Scanning**: Scans ports 80, 443, 22, 21, 3306, 8080, 8443, 25, 110, 143, 993, 995.
-- **Nmap Scripts**: 
-  - `http-enum`
-  - `http-vuln*`
-  - `*sql*`
-  - `*php*`
-  - `http-wordpress*`
-  - `vuln*`
-  - `auth*`
-  - `*apache*`
-  - `*ssh*`
-  - `*ftp*`
-  - `dns*`
-  - `smb*`
-  - `firewall*`
-- **Script Arguments**:
-  - `http-wordpress-enum.threads=10`
-  - `http-wordpress-brute.threads=10`
-  - `ftp-anon.maxlist=10`
-  - `http-slowloris.runforever=true`
+- **Automated Nmap Scans**: The script conducts thorough scans using Nmap, including service detection, vulnerability detection, and various other checks.
+- **IPv6 Awareness**: Automatically detects and adjusts scans based on IPv6 support.
+- **Professional HTML Reports**: Generates detailed HTML reports that include scan results, service detection results, and vulnerability details, including CVE lookups where applicable.
+- **Configurable Scanning**: The script is fully configurable via the `lampscan.conf` file, allowing users to adjust Nmap options, scripts, and other parameters.
+- **Enhanced Error Handling**: Improved error handling for missing commands and other edge cases.
+- **File Ownership**: Ensures that all generated files are owned by the user running the script.
 
 ## Installation
 
-### Prerequisites
-
-- **Nmap 7.94+**: Ensure you have Nmap version 7.94 or later installed on your system.
-- **Bash**: This script is designed to run in a Bash shell.
-
-### Installation
-
-1. **Clone the repository:**
-
+1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/lampscan.git
+   git clone https://github.com/your-repository/lampscan.git
+   ```
+
+2. Navigate to the directory:
+   ```bash
    cd lampscan
    ```
 
-2. **Make the script executable:**
-
+3. Ensure the script has executable permissions:
    ```bash
    chmod +x lampscan.sh
    ```
 
-3. **Run the script:**
-
-   ```bash
-   sudo ./lampscan.sh <domain_or_ip>
-   ```
-
 ## Usage
 
+Run the script with root privileges, providing a domain or IP address as the argument:
 ```bash
 sudo ./lampscan.sh <domain_or_ip>
 ```
 
-### Example
-
+Example:
 ```bash
 sudo ./lampscan.sh example.com
 ```
 
-### Output
+The tool will automatically detect whether IPv6 is supported and perform the scans accordingly. The results will be saved as an HTML report and a log file.
 
-- **Console Output**: Displays the progress of the scan, including any open, filtered, or closed ports, and key findings.
-- **Log File**: Generates a log file named `<target>_<date>_<time>_scan.log` containing detailed logs of the scan.
-- **HTML Report**: Generates an HTML report named `<target>_<date>_<time>_scan_report.html` containing:
-  - **Summary of Findings**: Overview of the total number of open, closed, and filtered ports.
-  - **Detailed Vulnerability Information**: Links to relevant CVE entries and suggested mitigations.
-  - **Scan Environment Details**: Nmap version, scripts used, and scanning host information.
+## Configuration
 
-### Options
+The script uses a configuration file named `lampscan.conf` to set Nmap options, scripts, and other parameters. If the file does not exist, the script will create a default configuration file.
 
-- The script automatically detects IPv6 support and adjusts the scan accordingly.
-- If IPv6 is not supported, it will skip the IPv6 scan and notify the user.
-
-## Roadmap
-
-- **Further Enhancements**: Continue improving error handling and expanding the script library with additional Nmap scripts for new and emerging threats.
-- **Advanced Reporting**: Incorporate trend analysis, real-time alerts, and integration with external tools in future versions.
-
-## Contributing
-
-Contributions are welcome! Please fork the repository and create a pull request with your changes. Ensure that your code adheres to the existing style and passes any tests before submitting.
+Example configuration (`lampscan.conf`):
+```bash
+NMAP_OPTIONS="-Pn -sC"
+NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*"
+NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true"
+NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995"
+GENERATE_HTML_REPORT="true"
+```
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contact
-
-For issues, questions, or suggestions, please open an issue in the repository.
-
-## Acknowledgments
-
-- Special thanks to the Nmap team for creating such a powerful and versatile tool.
-- Thanks to all contributors and the open-source community for their support and inspiration.
-```
