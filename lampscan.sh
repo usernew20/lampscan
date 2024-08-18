@@ -79,7 +79,7 @@ NMAP_OPTIONS="-Pn -sC -A"
 NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert,http-sql-injection,http-methods,http-auth,http-rfi-spider,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts,vulners,ssh-auth-methods"
 NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10"
 NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
-NIKTO_OPTIONS="-ssl"
+NIKTO_OPTIONS="-Tuning 1 -ssl"
 GENERATE_HTML_REPORT="true"
 EOL
     print_status "Default configuration file created at lampscan.conf"
@@ -260,7 +260,7 @@ run_scan_ipv6() {
 run_nikto_scan() {
     local target_ip="$1"
     print_status "Starting Nikto scan on $target_ip..."
-    nikto -h "$target_ip" "$NIKTO_OPTIONS" -output "$NIKTO_OUTPUT_FILE" &
+    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE" &
     spinner
 }
 
