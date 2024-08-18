@@ -1,12 +1,13 @@
-# LAMP/WordPress Server Nmap Scan
+# LAMPscan
 
 ## Overview
 
-The **LAMP/WordPress Server Nmap Scan Tool** is a comprehensive security assessment script designed for LAMP stack servers, with a particular focus on WordPress installations. This tool automates the process of scanning for open ports, services, and vulnerabilities, delivering a detailed HTML report that includes both scan results and relevant vulnerability information.
+The **LAMPscan** is a comprehensive security assessment script designed for LAMP stack servers, with a particular focus on WordPress installations and the OWASP Top Ten vulnerabilities. This tool automates the process of scanning for open ports, services, and vulnerabilities, delivering a detailed HTML report that includes both scan results and relevant vulnerability information.
 
 ## Features
 
 - **Automated Nmap Scans**: The script conducts thorough scans using Nmap, including service detection, vulnerability detection, and various other checks.
+- **OWASP Top Ten Coverage**: Updated configuration to include additional scripts and ports to cover most of the OWASP Top Ten vulnerabilities.
 - **IPv6 Awareness**: Automatically detects and adjusts scans based on IPv6 support.
 - **Professional HTML Reports**: Generates detailed HTML reports that include scan results, service detection results, and vulnerability details, including CVE lookups where applicable.
 - **Configurable Scanning**: The script is fully configurable via the `lampscan.conf` file, allowing users to adjust Nmap options, scripts, and other parameters.
@@ -50,14 +51,13 @@ The script uses a configuration file named `lampscan.conf` to set Nmap options, 
 
 Example configuration (`lampscan.conf`):
 ```bash
-NMAP_OPTIONS="-Pn -sC"
-NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*"
-NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true"
-NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995"
+NMAP_OPTIONS="-Pn -sC -A"
+NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert,http-sql-injection,http-methods,http-auth,http-rfi-spider,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts,vulners,ssh-auth-methods"
+NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10"
+NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
 GENERATE_HTML_REPORT="true"
 ```
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

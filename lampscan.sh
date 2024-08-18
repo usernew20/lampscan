@@ -75,14 +75,21 @@ load_config() {
 # Function to create a default configuration file
 create_default_config() {
     cat <<EOL > lampscan.conf
-NMAP_OPTIONS="-Pn -sC"
-NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*"
-NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10,http-slowloris.runforever=true"
-NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995"
+NMAP_OPTIONS="-Pn -sC -A"
+NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert,http-sql-injection,http-methods,http-auth,http-rfi-spider,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts,vulners,ssh-auth-methods"
+NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10"
+NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
 GENERATE_HTML_REPORT="true"
 EOL
     print_status "Default configuration file created at lampscan.conf"
+
+    # Add a small delay to ensure the file is fully written and recognized
+    sleep 1
+
+    # Source the configuration file again after creation
+    source lampscan.conf
 }
+
 
 # Enhanced error handling for missing required commands
 check_required_commands() {
@@ -292,7 +299,7 @@ generate_html_report() {
     done
 
     # If no vulnerabilities found, add a note
-    if ! grep -qE "VULNERABLE|vuln|Warning|open|filtered|closed" "$TEMP_OUTPUT_FILE"; then
+    if ! grep -qE "VULNERABLE|vuln|Warning|open" "$TEMP_OUTPUT_FILE"; then
         echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
     fi
 
