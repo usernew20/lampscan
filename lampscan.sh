@@ -79,6 +79,7 @@ NMAP_OPTIONS="-Pn -sC -A"
 NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert,http-sql-injection,http-methods,http-auth,http-rfi-spider,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts,vulners,ssh-auth-methods"
 NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10"
 NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
+NIKTO_OPTIONS=""
 GENERATE_HTML_REPORT="true"
 EOL
     print_status "Default configuration file created at lampscan.conf"
@@ -91,9 +92,10 @@ EOL
 }
 
 
+
 # Enhanced error handling for missing required commands
 check_required_commands() {
-    local cmds=("nmap" "dig" "ping6" "jq" "curl")
+    local cmds=("nmap" "dig" "ping6" "jq" "curl" "nikto")
     for cmd in "${cmds[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             print_error "$cmd could not be found. Please install it and try again."
@@ -186,6 +188,7 @@ DATE_TIME=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
 HTML_REPORT_FILE="${TARGET}_${DATE_TIME}_scan_report.html"
 TEMP_OUTPUT_FILE="${TARGET}_${DATE_TIME}_temp_output.txt"
+NIKTO_OUTPUT_FILE="${TARGET}_${DATE_TIME}_nikto_output.txt"
 
 # Print the header to console
 print_header
@@ -239,6 +242,14 @@ run_scan_ipv6() {
         -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
 }
 
+# Function to run a Nikto scan
+run_nikto_scan() {
+    local target_ip="$1"
+    print_status "Starting Nikto scan on $target_ip..."
+    nikto -h "$target_ip" "$NIKTO_OPTIONS" -output "$NIKTO_OUTPUT_FILE"
+}
+
+
 # Run the scan on IPv4 and save to temp file
 run_scan_ipv4 "$ipv4" &
 
@@ -251,10 +262,13 @@ elif [ -z "$ipv6" ]; then
     print_warning "No IPv6 address found for $TARGET. Skipping IPv6 scan."
 fi
 
+# Run Nikto scan on IPv4 only (since it's more likely for a web server)
+run_nikto_scan "$ipv4" &
+
 wait  # Wait for all background jobs to finish
 
 # Print final status messages
-print_status "Nmap scanning complete for $TARGET."
+print_status "Nmap and Nikto scanning complete for $TARGET."
 print_status "Log saved to: ${LOG_FILE}"
 
 # Function to generate an HTML report with advanced features
@@ -320,8 +334,8 @@ generate_html_report() {
             fi
         fi
 
-        # Filter out any line that contains the "scan initiated" text
-        if ! echo "$line" | grep -q "scan initiated"; then
+        # Filter out any line that contains the "scan initiated" or "Nikto v2." text
+        if ! echo "$line" | grep -q "scan initiated\|Nikto v2."; then
             echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
             echo "$line" >> "$HTML_REPORT_FILE"
             echo "<strong>Severity:</strong> $severity<br>" >> "$HTML_REPORT_FILE"
@@ -335,6 +349,15 @@ generate_html_report() {
         echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
     fi
 
+    # Include Nikto Scan Results
+    if [ -f "$NIKTO_OUTPUT_FILE" ]; then
+        echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><pre>" >> "$HTML_REPORT_FILE"
+        cat "$NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+        echo "</pre></div>" >> "$HTML_REPORT_FILE"
+    else
+        echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><p>No Nikto results found.</p></div>" >> "$HTML_REPORT_FILE"
+    fi
+
     echo "</div>" >> "$HTML_REPORT_FILE"
 
     # Scan Environment Details
@@ -344,6 +367,7 @@ generate_html_report() {
     echo "Scripts used: $NMAP_SCRIPTS" >> "$HTML_REPORT_FILE"
     echo "Script arguments: $NMAP_SCRIPT_ARGS" >> "$HTML_REPORT_FILE"
     echo "Ports scanned: $NMAP_PORTS" >> "$HTML_REPORT_FILE"
+    echo "Nikto output file: $NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "Scanning host IP: $(hostname -I | awk '{print $1}')" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
@@ -351,15 +375,16 @@ generate_html_report() {
     print_status "HTML report saved to: $HTML_REPORT_FILE"
 }
 
+
 # Generate HTML report if enabled
 if [ "$GENERATE_HTML_REPORT" = "true" ]; then
     generate_html_report
 fi
 
 # Ensure all created files are owned by the user running the script
-chown $SUDO_USER:$SUDO_USER "$LOG_FILE" "$HTML_REPORT_FILE"
+chown $SUDO_USER:$SUDO_USER "$LOG_FILE" "$HTML_REPORT_FILE" "$NIKTO_OUTPUT_FILE"
 
-# Clean up the temporary file
-rm -f "$TEMP_OUTPUT_FILE"
+# Clean up the temporary files
+rm -f "$TEMP_OUTPUT_FILE" "$NIKTO_OUTPUT_FILE"
 
 exit 0
