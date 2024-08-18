@@ -132,6 +132,38 @@ fi
 
 TARGET="$1"
 
+# Function to validate the target domain, IPv4, or IPv6 address
+validate_target() {
+    local target="$1"
+
+    # Regex for valid IPv4 address
+    local ipv4_regex="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
+
+    # Regex for valid IPv6 address
+    local ipv6_regex="^([0-9a-fA-F]{1,4}:){7}([0-9a-fA-F]{1,4})$|^::([0-9a-fA-F]{1,4}:){0,6}([0-9a-fA-F]{1,4})$|^([0-9a-fA-F]{1,4}:){1,6}:([0-9a-fA-F]{1,4})$"
+
+    # Regex for valid domain name (simple check)
+    local domain_regex="^([a-zA-Z0-9](-*[a-zA-Z0-9])*\.)+[a-zA-Z]{2,}$"
+
+    # Check if the target is a valid IPv4 address
+    if [[ $target =~ $ipv4_regex ]]; then
+        return 0
+    # Check if the target is a valid IPv6 address
+    elif [[ $target =~ $ipv6_regex ]]; then
+        return 0
+    # Check if the target is a valid domain name
+    elif [[ $target =~ $domain_regex ]]; then
+        return 0
+    else
+        print_error "Invalid target: $target. Please provide a valid domain name, IPv4, or IPv6 address."
+        exit 1
+    fi
+}
+
+
+# Validate the target input
+validate_target "$TARGET"
+
 # Load the configuration file
 load_config
 
