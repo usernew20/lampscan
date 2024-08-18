@@ -91,8 +91,6 @@ EOL
     source lampscan.conf
 }
 
-
-
 # Enhanced error handling for missing required commands
 check_required_commands() {
     local cmds=("nmap" "dig" "ping6" "jq" "curl" "nikto")
@@ -162,7 +160,6 @@ validate_target() {
     fi
 }
 
-
 # Validate the target input
 validate_target "$TARGET"
 
@@ -179,6 +176,21 @@ is_ip() {
     else
         return 1
     fi
+}
+
+# Spinner function
+spinner() {
+    local pid=$!
+    local delay=0.1
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep "$pid")" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\r"
+    done
+    printf "    \r" # clear spinner after process is done
 }
 
 # Get the current date and time for the suffix
@@ -230,7 +242,8 @@ run_scan_ipv4() {
     nmap $NMAP_OPTIONS \
         --script "$NMAP_SCRIPTS" \
         --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
+    spinner
 }
 
 # Function to run an IPv6 scan using configuration values
@@ -239,14 +252,16 @@ run_scan_ipv6() {
     nmap $NMAP_OPTIONS -6 \
         --script "$NMAP_SCRIPTS" \
         --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
+    spinner
 }
 
 # Function to run a Nikto scan
 run_nikto_scan() {
     local target_ip="$1"
     print_status "Starting Nikto scan on $target_ip..."
-    nikto -h "$target_ip" "$NIKTO_OPTIONS" -output "$NIKTO_OUTPUT_FILE"
+    nikto -h "$target_ip" "$NIKTO_OPTIONS" -output "$NIKTO_OUTPUT_FILE" &
+    spinner
 }
 
 
