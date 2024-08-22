@@ -195,9 +195,11 @@ spinner() {
     local pid=$!
     local delay=0.1
     local spinstr='|/-\'
+    local scan_name="$1"
+
     while kill -0 $pid 2>/dev/null; do
         local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
+        printf " [%c] %s  " "$spinstr" "$scan_name"
         spinstr=$temp${spinstr%"$temp"}
         sleep $delay
         printf "\r"
@@ -205,6 +207,7 @@ spinner() {
     printf "    \r" # clear spinner after process is done
     wait $pid
 }
+
 
 # Function to run a group scan
 run_scan_group() {
@@ -218,7 +221,7 @@ run_scan_group() {
         --script "$group_scripts" \
         --script-args="$group_script_args" \
         -p "$NMAP_PORTS" "$TARGET" --min-rate=100 --randomize-hosts -oN "$output_file" -vv &
-    spinner
+    spinner "$group_name"
     print_verbose "Nmap command executed for $group_name: nmap $NMAP_OPTIONS --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$NMAP_PORTS\" $TARGET --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
 }
 
@@ -239,11 +242,11 @@ VULN_NMAP_SCRIPT_ARGS=""
 CUSTOM_NMAP_SCRIPT_ARGS="$CUSTOM_NMAP_SCRIPT_ARGS"
 
 # Execute groups in parallel
-run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS"
-run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS"
-run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS"
-run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS"
-run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS"
+run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS" &
+run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS" &
+run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS" &
+run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS" &
+run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS" &
 
 # Run the custom group if defined
 if [ -n "$CUSTOM_NMAP_SCRIPTS" ]; then
@@ -254,23 +257,23 @@ if [ -n "$CUSTOM_NMAP_SCRIPTS" ]; then
     fi
 fi
 
+# Run Nikto scan on IPv4 only (since it's more likely for a web server)
+run_nikto_scan() {
+    local target_ip="$1"
+    print_status "Starting Nikto scan on $target_ip..."
+    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE" &
+    spinner "Nikto"
+    print_verbose "Nikto command executed: nikto -h \"$target_ip\" $NIKTO_OPTIONS -output \"$NIKTO_OUTPUT_FILE\""
+}
+
+run_nikto_scan "$TARGET" &
+
 # Wait for all scans to finish
 wait
 
 # Merge results
 FINAL_OUTPUT_FILE="${TARGET}_${DATE_TIME}_final_scan_output.txt"
 cat *_scan_output.txt > "$FINAL_OUTPUT_FILE"
-
-# Run Nikto scan on IPv4 only (since it's more likely for a web server)
-run_nikto_scan() {
-    local target_ip="$1"
-    print_status "Starting Nikto scan on $target_ip..."
-    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE" &
-    spinner
-    print_verbose "Nikto command executed: nikto -h \"$target_ip\" $NIKTO_OPTIONS -output \"$NIKTO_OUTPUT_FILE\""
-}
-
-run_nikto_scan "$TARGET"
 
 # Print final status messages
 print_status "Nmap and Nikto scanning complete for $TARGET."
