@@ -395,4 +395,15 @@ fi
 # Clean up the temporary files
 rm -f *_scan_output.txt "$NIKTO_OUTPUT_FILE"
 
+# Open the HTML report in the default browser as the non-root user
+if [ "$GENERATE_HTML_REPORT" = "true" ]; then
+    if command -v xdg-open &> /dev/null; then
+        export DISPLAY=:0
+        export XDG_RUNTIME_DIR="/tmp/runtime-$SUDO_USER"
+        sudo -u "$SUDO_USER" xdg-open "$HTML_REPORT_FILE"
+    elif command -v open &> /dev/null; then
+        sudo -u "$SUDO_USER" open "$HTML_REPORT_FILE"
+    fi
+fi
+
 exit 0
