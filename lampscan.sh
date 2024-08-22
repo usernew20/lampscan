@@ -77,17 +77,41 @@ load_config() {
 
 create_default_config() {
     cat <<EOL > lampscan.conf
+# Default Nmap options
 NMAP_OPTIONS="-Pn -sC -A"
-NMAP_SCRIPTS="http-enum,http-vuln*,*sql*,*php*,http-wordpress*,vuln*,auth*,*apache*,*ssh*,*ftp*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert,http-sql-injection,http-methods,http-auth,http-rfi-spider,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts,vulners,ssh-auth-methods"
-NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10,ftp-anon.maxlist=10"
+
+# Group-specific Nmap scripts
+WEB_NMAP_SCRIPTS="http-enum,http-vuln*,http-wordpress*,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts"
+AUTH_NMAP_SCRIPTS="ssh*,ftp*,auth*,ssh-auth-methods"
+DATABASE_NMAP_SCRIPTS="*sql*,mysql*,http-sql-injection"
+COMMON_NMAP_SCRIPTS="*apache*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert"
+VULN_NMAP_SCRIPTS="vuln*,vulners"
+
+# Group-specific Nmap script arguments
+WEB_NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10"
+AUTH_NMAP_SCRIPT_ARGS=""
+DATABASE_NMAP_SCRIPT_ARGS="ftp-anon.maxlist=10"
+COMMON_NMAP_SCRIPT_ARGS=""
+VULN_NMAP_SCRIPT_ARGS=""
+
+# Ports to scan
 NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
+
+# Custom group scripts (can be defined by the user)
+CUSTOM_NMAP_SCRIPTS=""
+CUSTOM_NMAP_SCRIPT_ARGS=""
+
+# Nikto scan options
 NIKTO_OPTIONS="-Tuning 1 -ssl"
+
+# Report generation
 GENERATE_HTML_REPORT="true"
+
+# Log level
 LOG_LEVEL="INFO"  # Change this to "VERBOSE" for more detailed logs
 EOL
-    log_message "INFO" "Default configuration file created at lampscan.conf"
 
-    # Ensure the file is fully written and recognized by the system
+    log_message "INFO" "Default configuration file created at lampscan.conf"
     sync
 
     if [ -f "lampscan.conf" ]; then
@@ -164,7 +188,6 @@ check_required_commands
 DATE_TIME=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
 HTML_REPORT_FILE="${TARGET}_${DATE_TIME}_scan_report.html"
-TEMP_OUTPUT_FILE="${TARGET}_${DATE_TIME}_temp_output.txt"
 NIKTO_OUTPUT_FILE="${TARGET}_${DATE_TIME}_nikto_output.txt"
 
 # Spinner function
@@ -183,105 +206,71 @@ spinner() {
     wait $pid
 }
 
-# Function to run an IPv4 scan using configuration values
-run_scan_ipv4() {
-    print_status "Starting IPv4 scan on $1..."
+# Function to run a group scan
+run_scan_group() {
+    local group_name="$1"
+    local group_scripts="$2"
+    local group_script_args="$3"
+    local output_file="${TARGET}_${group_name}_scan_output.txt"
+
+    print_status "Starting $group_name scan on $TARGET..."
     nmap $NMAP_OPTIONS \
-        --script "$NMAP_SCRIPTS" \
-        --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
+        --script "$group_scripts" \
+        --script-args="$group_script_args" \
+        -p "$NMAP_PORTS" "$TARGET" --min-rate=100 --randomize-hosts -oN "$output_file" -vv &
     spinner
-    print_verbose "Nmap command executed: nmap $NMAP_OPTIONS --script \"$NMAP_SCRIPTS\" --script-args=\"$NMAP_SCRIPT_ARGS\" -p \"$NMAP_PORTS\" $1 --min-rate=100 --randomize-hosts -oN \"$TEMP_OUTPUT_FILE\" -vv"
-    print_verbose "IPv4 scan results:\n$(cat $TEMP_OUTPUT_FILE)"
+    print_verbose "Nmap command executed for $group_name: nmap $NMAP_OPTIONS --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$NMAP_PORTS\" $TARGET --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
 }
 
-# Function to run an IPv6 scan using configuration values
-run_scan_ipv6() {
-    print_status "Starting IPv6 scan on $1..."
-    nmap $NMAP_OPTIONS -6 \
-        --script "$NMAP_SCRIPTS" \
-        --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
-    spinner
-    print_verbose "Nmap command executed: nmap $NMAP_OPTIONS -6 --script \"$NMAP_SCRIPTS\" --script-args=\"$NMAP_SCRIPT_ARGS\" -p \"$NMAP_PORTS\" $1 --min-rate=100 --randomize-hosts -oN \"$TEMP_OUTPUT_FILE\" -vv"
-    print_verbose "IPv6 scan results:\n$(cat $TEMP_OUTPUT_FILE)"
-}
+# Group definitions
+WEB_NMAP_SCRIPTS="http-enum,http-vuln*,http-wordpress*,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts"
+AUTH_NMAP_SCRIPTS="ssh*,ftp*,auth*,ssh-auth-methods"
+DATABASE_NMAP_SCRIPTS="*sql*,mysql*,http-sql-injection"
+COMMON_NMAP_SCRIPTS="*apache*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert"
+VULN_NMAP_SCRIPTS="vuln*,vulners"
+CUSTOM_NMAP_SCRIPTS="$CUSTOM_NMAP_SCRIPTS"
 
-# Function to run a Nikto scan
+# Group-specific arguments
+WEB_NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10"
+AUTH_NMAP_SCRIPT_ARGS=""
+DATABASE_NMAP_SCRIPT_ARGS="ftp-anon.maxlist=10"
+COMMON_NMAP_SCRIPT_ARGS=""
+VULN_NMAP_SCRIPT_ARGS=""
+CUSTOM_NMAP_SCRIPT_ARGS="$CUSTOM_NMAP_SCRIPT_ARGS"
+
+# Execute groups in parallel
+run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS"
+run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS"
+run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS"
+run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS"
+run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS"
+
+# Run the custom group if defined
+if [ -n "$CUSTOM_NMAP_SCRIPTS" ]; then
+    if ! nmap --script-help="$CUSTOM_NMAP_SCRIPTS" > /dev/null 2>&1; then
+        print_warning "Custom scripts not found or invalid: $CUSTOM_NMAP_SCRIPTS"
+    else
+        run_scan_group "custom" "$CUSTOM_NMAP_SCRIPTS" "$CUSTOM_NMAP_SCRIPT_ARGS"
+    fi
+fi
+
+# Wait for all scans to finish
+wait
+
+# Merge results
+FINAL_OUTPUT_FILE="${TARGET}_${DATE_TIME}_final_scan_output.txt"
+cat *_scan_output.txt > "$FINAL_OUTPUT_FILE"
+
+# Run Nikto scan on IPv4 only (since it's more likely for a web server)
 run_nikto_scan() {
     local target_ip="$1"
     print_status "Starting Nikto scan on $target_ip..."
     nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE" &
     spinner
     print_verbose "Nikto command executed: nikto -h \"$target_ip\" $NIKTO_OPTIONS -output \"$NIKTO_OUTPUT_FILE\""
-    print_verbose "Nikto scan results:\n$(cat $NIKTO_OUTPUT_FILE)"
 }
 
-# Function to check if input is an IP address
-is_ip() {
-    if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Print the header to console and log file
-print_header() {
-    echo -e "${BOLD}${CYAN}================================================================${RESET}"
-    echo -e "${BOLD}${CYAN}LAMP/WordPress Server Nmap Scan (c) 2024 Zayn Otley${RESET}"
-    echo -e "${BOLD}${CYAN}================================================================${RESET}"
-
-    echo "================================================================" >> "$LOG_FILE"
-    echo "LAMP/WordPress Server Nmap Scan (c) 2024 Zayn Otley" >> "$LOG_FILE"
-    echo "================================================================" >> "$LOG_FILE"
-}
-
-# Print the header
-print_header
-
-# Notify user that IPv6 support is being checked
-print_status "Checking for IPv6 support on this machine..."
-
-# Detect if IPv6 is supported on the machine
-if ! ping6 -c 1 ::1 &> /dev/null; then
-    IPV6_SUPPORTED=false
-    print_warning "IPv6 is not supported on this machine."
-else
-    IPV6_SUPPORTED=true
-fi
-
-# Resolve the IP addresses of the target if it's not an IP
-if is_ip "$TARGET"; then
-    ipv4="$TARGET"
-else
-    ipv4=$(dig +short A "$TARGET")
-    ipv6=$(dig +short AAAA "$TARGET")
-
-    if [ -z "$ipv4" ]; then
-        print_error "Failed to resolve IPv4 address for $TARGET."
-        exit 1
-    fi
-
-    if [ -z "$ipv6" ]; then
-        print_warning "Failed to resolve IPv6 address for $TARGET."
-    fi
-fi
-
-# Run the scan on IPv4 and save to temp file
-run_scan_ipv4 "$ipv4"
-
-# Run the scan on IPv6 if available and supported and save to temp file
-if [ "$IPV6_SUPPORTED" = true ] && [ -n "$ipv6" ]; then
-    run_scan_ipv6 "$ipv6"
-elif [ "$IPV6_SUPPORTED" = false ]; then
-    print_warning "Skipping IPv6 scan because IPv6 is not supported on this machine."
-elif [ -z "$ipv6" ]; then
-    print_warning "No IPv6 address found for $TARGET. Skipping IPv6 scan."
-fi
-
-# Run Nikto scan on IPv4 only (since it's more likely for a web server)
-run_nikto_scan "$ipv4"
+run_nikto_scan "$TARGET"
 
 # Print final status messages
 print_status "Nmap and Nikto scanning complete for $TARGET."
@@ -304,36 +293,35 @@ generate_html_report() {
 
     # Summary of Findings
     echo "<div class=\"scan-section\"><h2>Summary of Findings</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep "open\|closed\|filtered" "$TEMP_OUTPUT_FILE" | wc -l | xargs echo "Total number of ports scanned: " >> "$HTML_REPORT_FILE"
-    grep "open" "$TEMP_OUTPUT_FILE" | wc -l | xargs echo "Open ports: " >> "$HTML_REPORT_FILE"
-    grep "filtered" "$TEMP_OUTPUT_FILE" | wc -l | xargs echo "Filtered ports: " >> "$HTML_REPORT_FILE"
-    grep "closed" "$TEMP_OUTPUT_FILE" | wc -l | xargs echo "Closed ports: " >> "$HTML_REPORT_FILE"
+    grep "open\|closed\|filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Total number of ports scanned: " >> "$HTML_REPORT_FILE"
+    grep "open" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Open ports: " >> "$HTML_REPORT_FILE"
+    grep "filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Filtered ports: " >> "$HTML_REPORT_FILE"
+    grep "closed" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Closed ports: " >> "$HTML_REPORT_FILE"
     echo "Recommendations: Review and secure any open ports, apply necessary patches for vulnerabilities, and close unnecessary ports." >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Include IPv4 scan results
     echo "<div class=\"scan-section\"><h2>Scan Results (IPv4)</h2><pre>" >> "$HTML_REPORT_FILE"
-    cat "$TEMP_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+    cat "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Include IPv6 scan results if available
     if [ "$IPV6_SUPPORTED" = true ] && [ -n "$ipv6" ]; then
         echo "<div class=\"scan-section\"><h2>Scan Results (IPv6)</h2><pre>" >> "$HTML_REPORT_FILE"
-        cat "$TEMP_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+        cat "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
         echo "</pre></div>" >> "$HTML_REPORT_FILE"
     fi
 
     # Service Detection Results
     echo "<div class=\"scan-section\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep -E "^([0-9]{1,5}/tcp)" "$TEMP_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+    grep -E "^([0-9]{1,5}/tcp)" "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Detailed Vulnerability Information
     echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
 
     # Parsing vulnerabilities from the Nmap output
-    grep -E "VULNERABLE|vuln|Warning|open" "$TEMP_OUTPUT_FILE" | while read -r line; do
-
+    grep -E "VULNERABLE|vuln|Warning|open" "$FINAL_OUTPUT_FILE" | while read -r line; do
         # Set default values
         severity="N/A"
         cvss_score="N/A"
@@ -361,7 +349,7 @@ generate_html_report() {
     done
 
     # If no vulnerabilities found, add a note
-    if ! grep -qE "VULNERABLE|vuln|Warning|open" "$TEMP_OUTPUT_FILE"; then
+    if ! grep -qE "VULNERABLE|vuln|Warning|open" "$FINAL_OUTPUT_FILE"; then
         echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
     fi
 
@@ -380,8 +368,7 @@ generate_html_report() {
     echo "<div class=\"scan-section\"><h2>Scan Environment Details</h2><pre>" >> "$HTML_REPORT_FILE"
     echo "Nmap version: $(nmap --version | head -n 1)" >> "$HTML_REPORT_FILE"
     echo "Nmap options: $NMAP_OPTIONS" >> "$HTML_REPORT_FILE"
-    echo "Scripts used: $NMAP_SCRIPTS" >> "$HTML_REPORT_FILE"
-    echo "Script arguments: $NMAP_SCRIPT_ARGS" >> "$HTML_REPORT_FILE"
+    echo "Scripts used: $group_script_args" >> "$HTML_REPORT_FILE"
     echo "Ports scanned: $NMAP_PORTS" >> "$HTML_REPORT_FILE"
     echo "Nikto output file: $NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "Scanning host IP: $(hostname -I | awk '{print $1}')" >> "$HTML_REPORT_FILE"
@@ -392,16 +379,17 @@ generate_html_report() {
     print_status "HTML report saved to: $HTML_REPORT_FILE"
 }
 
-
 # Generate HTML report if enabled
 if [ "$GENERATE_HTML_REPORT" = "true" ]; then
     generate_html_report
 fi
 
 # Ensure all created files are owned by the user running the script
-chown $SUDO_USER:$SUDO_USER "$LOG_FILE" "$HTML_REPORT_FILE" "$NIKTO_OUTPUT_FILE"
+if [ -n "$SUDO_USER" ]; then
+    chown $SUDO_USER:$SUDO_USER "$LOG_FILE" "$HTML_REPORT_FILE" "$NIKTO_OUTPUT_FILE"
+fi
 
 # Clean up the temporary files
-rm -f "$TEMP_OUTPUT_FILE" "$NIKTO_OUTPUT_FILE"
+rm -f *_scan_output.txt "$NIKTO_OUTPUT_FILE"
 
 exit 0
