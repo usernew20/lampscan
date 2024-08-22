@@ -5,7 +5,7 @@ BOLD="\033[1m"
 CYAN="\033[36m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
-RED="\033[0m"
+RED="\033[31m"
 RESET="\033[0m"
 
 # Default log level (INFO)
@@ -167,13 +167,29 @@ HTML_REPORT_FILE="${TARGET}_${DATE_TIME}_scan_report.html"
 TEMP_OUTPUT_FILE="${TARGET}_${DATE_TIME}_temp_output.txt"
 NIKTO_OUTPUT_FILE="${TARGET}_${DATE_TIME}_nikto_output.txt"
 
+# Spinner function
+spinner() {
+    local pid=$!
+    local delay=0.1
+    local spinstr='|/-\'
+    while [ "$(ps -p $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\r"
+    done
+    printf "    \r" # clear spinner after process is done
+}
+
 # Function to run an IPv4 scan using configuration values
 run_scan_ipv4() {
     print_status "Starting IPv4 scan on $1..."
     nmap $NMAP_OPTIONS \
         --script "$NMAP_SCRIPTS" \
         --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
+    spinner
     print_verbose "Nmap command executed: nmap $NMAP_OPTIONS --script \"$NMAP_SCRIPTS\" --script-args=\"$NMAP_SCRIPT_ARGS\" -p \"$NMAP_PORTS\" $1 --min-rate=100 --randomize-hosts -oN \"$TEMP_OUTPUT_FILE\" -vv"
     print_verbose "IPv4 scan results:\n$(cat $TEMP_OUTPUT_FILE)"
 }
@@ -184,7 +200,8 @@ run_scan_ipv6() {
     nmap $NMAP_OPTIONS -6 \
         --script "$NMAP_SCRIPTS" \
         --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
+    spinner
     print_verbose "Nmap command executed: nmap $NMAP_OPTIONS -6 --script \"$NMAP_SCRIPTS\" --script-args=\"$NMAP_SCRIPT_ARGS\" -p \"$NMAP_PORTS\" $1 --min-rate=100 --randomize-hosts -oN \"$TEMP_OUTPUT_FILE\" -vv"
     print_verbose "IPv6 scan results:\n$(cat $TEMP_OUTPUT_FILE)"
 }
@@ -193,7 +210,8 @@ run_scan_ipv6() {
 run_nikto_scan() {
     local target_ip="$1"
     print_status "Starting Nikto scan on $target_ip..."
-    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE"
+    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE" &
+    spinner
     print_verbose "Nikto command executed: nikto -h \"$target_ip\" $NIKTO_OPTIONS -output \"$NIKTO_OUTPUT_FILE\""
     print_verbose "Nikto scan results:\n$(cat $NIKTO_OUTPUT_FILE)"
 }
@@ -205,21 +223,6 @@ is_ip() {
     else
         return 1
     fi
-}
-
-# Spinner function
-spinner() {
-    local pid=$!
-    local delay=0.1
-    local spinstr='|/-\'
-    while [ "$(ps a | awk '{print $1}' | grep "$pid")" ]; do
-        local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
-        spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
-        printf "\r"
-    done
-    printf "    \r" # clear spinner after process is done
 }
 
 # Print the header to console and log file
