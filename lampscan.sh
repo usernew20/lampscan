@@ -11,23 +11,10 @@ RESET="\033[0m"
 # Default log level (INFO)
 LOG_LEVEL="INFO"
 
-# Header text
-HEADER_TEXT="================================================================
-LAMP/WordPress Server Nmap Scan (c) 2024 Zayn Otley
-================================================================"
+# Default log file (in case it's needed before configuration is loaded)
+LOG_FILE=""
 
-# Function to print headers to console and optionally to the log file
-print_header() {
-    if [ "$1" != "log" ]; then
-        echo -e "${BOLD}${CYAN}$HEADER_TEXT${RESET}"
-    fi
-
-    if [ "$1" = "log" ] && [ -n "$LOG_FILE" ]; then
-        echo "$HEADER_TEXT" >> "$LOG_FILE"
-    fi
-}
-
-# Function to log messages
+# Function to log messages with timestamps
 log_message() {
     local level="$1"
     local message="$2"
@@ -39,9 +26,14 @@ log_message() {
         echo -e "${YELLOW}$message${RESET}"
         if [ -n "$LOG_FILE" ]; then echo "[$timestamp] WARNING: $message" >> "$LOG_FILE"; fi
     elif [ "$level" = "INFO" ]; then
-        if [ "$LOG_LEVEL" = "INFO" ]; then
+        if [ "$LOG_LEVEL" = "INFO" ] || [ "$LOG_LEVEL" = "VERBOSE" ]; then
             echo -e "${GREEN}$message${RESET}"
             if [ -n "$LOG_FILE" ]; then echo "[$timestamp] INFO: $message" >> "$LOG_FILE"; fi
+        fi
+    elif [ "$level" = "VERBOSE" ]; then
+        if [ "$LOG_LEVEL" = "VERBOSE" ]; then
+            echo -e "${CYAN}$message${RESET}"
+            if [ -n "$LOG_FILE" ]; then echo "[$timestamp] VERBOSE: $message" >> "$LOG_FILE"; fi
         fi
     fi
 }
@@ -49,6 +41,11 @@ log_message() {
 # Function to print status messages
 print_status() {
     log_message "INFO" "$1"
+}
+
+# Function to print verbose messages
+print_verbose() {
+    log_message "VERBOSE" "$1"
 }
 
 # Function to print warnings
@@ -61,18 +58,23 @@ print_error() {
     log_message "ERROR" "$1"
 }
 
-# Function to load configuration file
+# Ensure the script is run as root
+if [ "$EUID" -ne 0 ]; then
+    log_message "ERROR" "This script must be run as root."
+    exit 1
+fi
+
+# Load the configuration file early in the script
 load_config() {
     local config_file="lampscan.conf"
     if [ -f "$config_file" ]; then
         source "$config_file"
     else
-        print_warning "Configuration file lampscan.conf not found. Creating a default configuration."
+        log_message "WARNING" "Configuration file lampscan.conf not found. Creating a default configuration."
         create_default_config
     fi
 }
 
-# Function to create a default configuration file
 create_default_config() {
     cat <<EOL > lampscan.conf
 NMAP_OPTIONS="-Pn -sC -A"
@@ -81,53 +83,34 @@ NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10
 NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
 NIKTO_OPTIONS="-Tuning 1 -ssl"
 GENERATE_HTML_REPORT="true"
+LOG_LEVEL="INFO"  # Change this to "VERBOSE" for more detailed logs
 EOL
-    print_status "Default configuration file created at lampscan.conf"
+    log_message "INFO" "Default configuration file created at lampscan.conf"
 
-    # Add a small delay to ensure the file is fully written and recognized
-    sleep 1
+    # Ensure the file is fully written and recognized by the system
+    sync
 
-    # Source the configuration file again after creation
-    source lampscan.conf
+    if [ -f "lampscan.conf" ]; then
+        source lampscan.conf
+    else
+        log_message "ERROR" "Failed to create and source the configuration file."
+        exit 1
+    fi
 }
 
-# Enhanced error handling for missing required commands
-check_required_commands() {
-    local cmds=("nmap" "dig" "ping6" "jq" "curl" "nikto")
-    for cmd in "${cmds[@]}"; do
-        if ! command -v $cmd &> /dev/null; then
-            print_error "$cmd could not be found. Please install it and try again."
-            exit 1
-        fi
-    done
-}
-
-# Function to look up CVE details from the NVD API
-lookup_cve_details() {
-    local cve_id="$1"
-    local api_url="https://services.nvd.nist.gov/rest/json/cve/1.0/$cve_id"
-
-    # Fetch CVE details from the NVD API
-    local response=$(curl -s "$api_url")
-
-    # Extract severity and CVSS score using jq
-    local severity=$(echo "$response" | jq -r '.result.CVE_Items[0].impact.baseMetricV3.cvssV3.baseSeverity // "N/A"')
-    local cvss_score=$(echo "$response" | jq -r '.result.CVE_Items[0].impact.baseMetricV3.cvssV3.baseScore // "N/A"')
-
-    # Return the details
-    echo "$severity,$cvss_score"
-}
-
-# Ensure the script is run as root
-if [ "$EUID" -ne 0 ]; then
-    print_error "This script must be run as root."
-    exit 1
-fi
+# Now load the configuration
+load_config
 
 # Check if the user provided an argument
 if [ -z "$1" ]; then
-    echo "Usage: $0 <domain_or_ip>"
+    echo "Usage: $0 [-v] <domain_or_ip>"
     exit 1
+fi
+
+# Check for verbose flag
+if [ "$1" == "-v" ]; then
+    LOG_LEVEL="VERBOSE"
+    shift  # Remove the -v from the argument list
 fi
 
 TARGET="$1"
@@ -163,11 +146,57 @@ validate_target() {
 # Validate the target input
 validate_target "$TARGET"
 
-# Load the configuration file
-load_config
+# Check required commands
+check_required_commands() {
+    local cmds=("nmap" "dig" "ping6" "jq" "curl" "nikto")
+    for cmd in "${cmds[@]}"; do
+        if ! command -v $cmd &> /dev/null; then
+            print_error "$cmd could not be found. Please install it and try again."
+            exit 1
+        fi
+    done
+}
 
 # Check required commands
 check_required_commands
+
+# Initialize log file based on the target and current date/time
+DATE_TIME=$(date +"%Y%m%d_%H%M%S")
+LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
+HTML_REPORT_FILE="${TARGET}_${DATE_TIME}_scan_report.html"
+TEMP_OUTPUT_FILE="${TARGET}_${DATE_TIME}_temp_output.txt"
+NIKTO_OUTPUT_FILE="${TARGET}_${DATE_TIME}_nikto_output.txt"
+
+# Function to run an IPv4 scan using configuration values
+run_scan_ipv4() {
+    print_status "Starting IPv4 scan on $1..."
+    nmap $NMAP_OPTIONS \
+        --script "$NMAP_SCRIPTS" \
+        --script-args="$NMAP_SCRIPT_ARGS" \
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
+    print_verbose "Nmap command executed: nmap $NMAP_OPTIONS --script \"$NMAP_SCRIPTS\" --script-args=\"$NMAP_SCRIPT_ARGS\" -p \"$NMAP_PORTS\" $1 --min-rate=100 --randomize-hosts -oN \"$TEMP_OUTPUT_FILE\" -vv"
+    print_verbose "IPv4 scan results:\n$(cat $TEMP_OUTPUT_FILE)"
+}
+
+# Function to run an IPv6 scan using configuration values
+run_scan_ipv6() {
+    print_status "Starting IPv6 scan on $1..."
+    nmap $NMAP_OPTIONS -6 \
+        --script "$NMAP_SCRIPTS" \
+        --script-args="$NMAP_SCRIPT_ARGS" \
+        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv
+    print_verbose "Nmap command executed: nmap $NMAP_OPTIONS -6 --script \"$NMAP_SCRIPTS\" --script-args=\"$NMAP_SCRIPT_ARGS\" -p \"$NMAP_PORTS\" $1 --min-rate=100 --randomize-hosts -oN \"$TEMP_OUTPUT_FILE\" -vv"
+    print_verbose "IPv6 scan results:\n$(cat $TEMP_OUTPUT_FILE)"
+}
+
+# Function to run a Nikto scan
+run_nikto_scan() {
+    local target_ip="$1"
+    print_status "Starting Nikto scan on $target_ip..."
+    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE"
+    print_verbose "Nikto command executed: nikto -h \"$target_ip\" $NIKTO_OPTIONS -output \"$NIKTO_OUTPUT_FILE\""
+    print_verbose "Nikto scan results:\n$(cat $NIKTO_OUTPUT_FILE)"
+}
 
 # Function to check if input is an IP address
 is_ip() {
@@ -193,20 +222,19 @@ spinner() {
     printf "    \r" # clear spinner after process is done
 }
 
-# Get the current date and time for the suffix
-DATE_TIME=$(date +"%Y%m%d_%H%M%S")
+# Print the header to console and log file
+print_header() {
+    echo -e "${BOLD}${CYAN}================================================================${RESET}"
+    echo -e "${BOLD}${CYAN}LAMP/WordPress Server Nmap Scan (c) 2024 Zayn Otley${RESET}"
+    echo -e "${BOLD}${CYAN}================================================================${RESET}"
 
-# Output file name based on target and current date/time
-LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
-HTML_REPORT_FILE="${TARGET}_${DATE_TIME}_scan_report.html"
-TEMP_OUTPUT_FILE="${TARGET}_${DATE_TIME}_temp_output.txt"
-NIKTO_OUTPUT_FILE="${TARGET}_${DATE_TIME}_nikto_output.txt"
+    echo "================================================================" >> "$LOG_FILE"
+    echo "LAMP/WordPress Server Nmap Scan (c) 2024 Zayn Otley" >> "$LOG_FILE"
+    echo "================================================================" >> "$LOG_FILE"
+}
 
-# Print the header to console
+# Print the header
 print_header
-
-# Print the header to the log file only
-print_header "log"
 
 # Notify user that IPv6 support is being checked
 print_status "Checking for IPv6 support on this machine..."
@@ -236,41 +264,12 @@ else
     fi
 fi
 
-# Function to run an IPv4 scan using configuration values
-run_scan_ipv4() {
-    print_status "Starting IPv4 scan on $1..."
-    nmap $NMAP_OPTIONS \
-        --script "$NMAP_SCRIPTS" \
-        --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
-    spinner
-}
-
-# Function to run an IPv6 scan using configuration values
-run_scan_ipv6() {
-    print_status "Starting IPv6 scan on $1..."
-    nmap $NMAP_OPTIONS -6 \
-        --script "$NMAP_SCRIPTS" \
-        --script-args="$NMAP_SCRIPT_ARGS" \
-        -p "$NMAP_PORTS" "$1" --min-rate=100 --randomize-hosts -oN "$TEMP_OUTPUT_FILE" -vv &
-    spinner
-}
-
-# Function to run a Nikto scan
-run_nikto_scan() {
-    local target_ip="$1"
-    print_status "Starting Nikto scan on $target_ip..."
-    nikto -h "$target_ip" $NIKTO_OPTIONS -output "$NIKTO_OUTPUT_FILE" &
-    spinner
-}
-
-
 # Run the scan on IPv4 and save to temp file
-run_scan_ipv4 "$ipv4" &
+run_scan_ipv4 "$ipv4"
 
 # Run the scan on IPv6 if available and supported and save to temp file
 if [ "$IPV6_SUPPORTED" = true ] && [ -n "$ipv6" ]; then
-    run_scan_ipv6 "$ipv6" &
+    run_scan_ipv6 "$ipv6"
 elif [ "$IPV6_SUPPORTED" = false ]; then
     print_warning "Skipping IPv6 scan because IPv6 is not supported on this machine."
 elif [ -z "$ipv6" ]; then
@@ -278,9 +277,7 @@ elif [ -z "$ipv6" ]; then
 fi
 
 # Run Nikto scan on IPv4 only (since it's more likely for a web server)
-run_nikto_scan "$ipv4" &
-
-wait  # Wait for all background jobs to finish
+run_nikto_scan "$ipv4"
 
 # Print final status messages
 print_status "Nmap and Nikto scanning complete for $TARGET."
@@ -387,6 +384,7 @@ generate_html_report() {
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     echo "</body></html>" >> "$HTML_REPORT_FILE"
+    print_verbose "HTML report generation completed."
     print_status "HTML report saved to: $HTML_REPORT_FILE"
 }
 
