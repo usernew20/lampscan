@@ -172,7 +172,7 @@ spinner() {
     local pid=$!
     local delay=0.1
     local spinstr='|/-\'
-    while [ "$(ps -p $pid)" ]; do
+    while kill -0 $pid 2>/dev/null; do
         local temp=${spinstr#?}
         printf " [%c]  " "$spinstr"
         spinstr=$temp${spinstr%"$temp"}
@@ -180,6 +180,7 @@ spinner() {
         printf "\r"
     done
     printf "    \r" # clear spinner after process is done
+    wait $pid
 }
 
 # Function to run an IPv4 scan using configuration values
