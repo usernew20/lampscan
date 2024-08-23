@@ -298,7 +298,30 @@ print_status "Nmap and Nikto scanning complete for $TARGET."
 print_status "Log saved to: ${LOG_FILE}"
 
 # Function to generate an HTML report with advanced features
-generate_html_report() {
+function lookup_cve_details() {
+    local cve_id="$1"
+    local nvd_api_url="https://services.nvd.nist.gov/rest/json/cve/1.0/$cve_id"
+
+    # Fetch CVE details from NVD
+    local cve_details=$(curl -s "$nvd_api_url" | jq '.result.CVE_Items[0].cve')
+
+    # Check if we got a valid response
+    if [[ -z "$cve_details" || "$cve_details" == "null" ]]; then
+        print_warning "CVE details for $cve_id could not be retrieved."
+        echo "N/A,N/A"
+        return
+    fi
+
+    # Extract relevant information from the JSON response
+    local cve_description=$(echo "$cve_details" | jq -r '.description.description_data[0].value')
+    local cve_published_date=$(echo "$cve_details" | jq -r '.publishedDate')
+    local cve_impact_score=$(echo "$cve_details" | jq -r '.impact.baseMetricV2.cvssV2.baseScore // "N/A"')
+
+    # Return severity and CVSS score
+    echo "$cve_description,$cve_impact_score"
+}
+
+function generate_html_report() {
     print_status "Generating HTML report..."
     echo "<html><head><title>Scan Report for $TARGET</title>" > "$HTML_REPORT_FILE"
     echo "<style>
@@ -313,8 +336,8 @@ generate_html_report() {
     echo "<p><strong>Scan Date:</strong> $(date)</p>" >> "$HTML_REPORT_FILE"
 
     # Summary of Findings
-    echo "<div class=\"scan-section\"><h2>Summary of Findings</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep "open\|closed\|filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Total number of ports scanned: " >> "$HTML_REPORT_FILE"
+    echo "<div class=\\"scan-section\\"><h2>Summary of Findings</h2><pre>" >> "$HTML_REPORT_FILE"
+    grep "open\\|closed\\|filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Total number of ports scanned: " >> "$HTML_REPORT_FILE"
     grep "open" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Open ports: " >> "$HTML_REPORT_FILE"
     grep "filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Filtered ports: " >> "$HTML_REPORT_FILE"
     grep "closed" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Closed ports: " >> "$HTML_REPORT_FILE"
@@ -322,24 +345,33 @@ generate_html_report() {
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Include IPv4 scan results
-    echo "<div class=\"scan-section\"><h2>Scan Results (IPv4)</h2><pre>" >> "$HTML_REPORT_FILE"
+    echo "<div class=\\"scan-section\\"><h2>Scan Results (IPv4)</h2><pre>" >> "$HTML_REPORT_FILE"
     cat "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Include IPv6 scan results if available
     if [ "$IPV6_SUPPORTED" = true ] && [ -n "$ipv6" ]; then
-        echo "<div class=\"scan-section\"><h2>Scan Results (IPv6)</h2><pre>" >> "$HTML_REPORT_FILE"
+        echo "<div class=\\"scan-section\\"><h2>Scan Results (IPv6)</h2><pre>" >> "$HTML_REPORT_FILE"
         cat "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
         echo "</pre></div>" >> "$HTML_REPORT_FILE"
     fi
 
     # Service Detection Results
-    echo "<div class=\"scan-section\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
+    echo "<div class=\\"scan-section\\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
     grep -E "^([0-9]{1,5}/tcp)" "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
+    # Include Nikto Scan Results
+    if [ -f "$NIKTO_OUTPUT_FILE" ]; then
+        echo "<div class=\\"scan-section\\"><h2>Nikto Scan Results</h2><pre>" >> "$HTML_REPORT_FILE"
+        cat "$NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+        echo "</pre></div>" >> "$HTML_REPORT_FILE"
+    else
+        echo "<div class=\\"scan-section\\"><h2>Nikto Scan Results</h2><p>No Nikto results found.</p></div>" >> "$HTML_REPORT_FILE"
+    fi
+
     # Detailed Vulnerability Information
-    echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
+    echo "<div class=\\"scan-section\\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
 
     # Parsing vulnerabilities from the Nmap output
     grep -E "VULNERABLE|vuln|Warning|open" "$FINAL_OUTPUT_FILE" | while read -r line; do
@@ -350,7 +382,7 @@ generate_html_report() {
         # Check if the line contains a CVE identifier
         if echo "$line" | grep -q "CVE-"; then
             # Extract the CVE ID
-            cve_id=$(echo "$line" | grep -o "CVE-[0-9]\+-[0-9]\+")
+            cve_id=$(echo "$line" | grep -o "CVE-[0-9]\\+-[0-9]\\+")
             if [ -n "$cve_id" ]; then
                 # Look up the CVE details from the NVD API
                 cve_info=$(lookup_cve_details "$cve_id")
@@ -360,8 +392,8 @@ generate_html_report() {
         fi
 
         # Filter out any line that contains the "scan initiated" or "Nikto v2." text
-        if ! echo "$line" | grep -q "scan initiated\|Nikto v2."; then
-            echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
+        if ! echo "$line" | grep -q "scan initiated\\|Nikto v2."; then
+            echo "<div class=\\"vuln-section\\"><pre>" >> "$HTML_REPORT_FILE"
             echo "$line" >> "$HTML_REPORT_FILE"
             echo "<strong>Severity:</strong> $severity<br>" >> "$HTML_REPORT_FILE"
             echo "<strong>CVSS Score:</strong> $cvss_score<br>" >> "$HTML_REPORT_FILE"
@@ -374,31 +406,15 @@ generate_html_report() {
         echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
     fi
 
-    # Include Nikto Scan Results
-    if [ -f "$NIKTO_OUTPUT_FILE" ]; then
-        echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><pre>" >> "$HTML_REPORT_FILE"
-        cat "$NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
-        echo "</pre></div>" >> "$HTML_REPORT_FILE"
-    else
-        echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><p>No Nikto results found.</p></div>" >> "$HTML_REPORT_FILE"
-    fi
-
     echo "</div>" >> "$HTML_REPORT_FILE"
 
-    # Scan Environment Details
-    echo "<div class=\"scan-section\"><h2>Scan Environment Details</h2><pre>" >> "$HTML_REPORT_FILE"
-    echo "Nmap version: $(nmap --version | head -n 1)" >> "$HTML_REPORT_FILE"
-    echo "Nmap options: $NMAP_OPTIONS" >> "$HTML_REPORT_FILE"
-    echo "Scripts used: $group_script_args" >> "$HTML_REPORT_FILE"
-    echo "Ports scanned: $NMAP_PORTS" >> "$HTML_REPORT_FILE"
-    echo "Nikto output file: $NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
-    echo "Scanning host IP: $(hostname -I | awk '{print $1}')" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     echo "</body></html>" >> "$HTML_REPORT_FILE"
-    print_verbose "HTML report generation completed."
-    print_status "HTML report saved to: $HTML_REPORT_FILE"
+
+    print_status "HTML report generated at: ${HTML_REPORT_FILE}"
 }
+
 
 # Generate HTML report if enabled
 if [ "$GENERATE_HTML_REPORT" = "true" ]; then
