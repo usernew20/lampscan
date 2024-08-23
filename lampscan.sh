@@ -190,6 +190,24 @@ LOG_FILE="${TARGET}_${DATE_TIME}_scan.log"
 HTML_REPORT_FILE="${TARGET}_${DATE_TIME}_scan_report.html"
 NIKTO_OUTPUT_FILE="${TARGET}_${DATE_TIME}_nikto_output.txt"
 
+# Function to print the banner to console and log file
+print_banner() {
+    local banner_text="================================================================
+LAMP/WordPress Server Nmap Scan (c) 2024 Zayn Otley
+https://github.com/intuitionamiga/lampscan
+MIT License - Use at your own risk!
+================================================================"
+
+    # Print with ANSI coloring to the console
+    echo -e "${BOLD}${CYAN}$(echo "$banner_text")${RESET}"
+
+    # Print without ANSI coloring to the log file
+    echo "$banner_text" >> "$LOG_FILE"
+}
+
+# Print the banner
+print_banner
+
 # Spinner function
 spinner() {
     local pid=$!
