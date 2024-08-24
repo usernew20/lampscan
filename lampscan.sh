@@ -172,6 +172,7 @@ validate_target() {
 # Validate the target input
 validate_target "$TARGET"
 
+
 # Check required commands
 check_required_commands() {
     local cmds=("nmap" "dig" "ping6" "jq" "curl" "nikto")
@@ -182,6 +183,20 @@ check_required_commands() {
         fi
     done
 }
+
+check_ipv6_support() {
+    local target="$1"
+    if ping6 -c 1 -W 1 "$target" &> /dev/null; then
+        IPV6_SUPPORTED=true
+        log_message "INFO" "IPv6 is supported and reachable for $target."
+    else
+        IPV6_SUPPORTED=false
+        log_message "INFO" "IPv6 is not supported or not reachable for $target."
+    fi
+}
+
+# Check if the local machine supports IPv6
+check_ipv6_support
 
 # Check required commands
 check_required_commands
@@ -234,35 +249,54 @@ run_scan_group() {
     local group_name="$1"
     local group_scripts="$2"
     local group_script_args="$3"
-    local group_ports="$4"  # New parameter for ports
-    local output_file="${TARGET}_${group_name}_scan_output.txt"
+    local group_ports="$4"
+    local ip_version="$5"
+    local target_ip="$6"
 
-    print_status "Starting $group_name scan on $TARGET..."
-    nmap $NMAP_OPTIONS \
+    local output_file="${TARGET}_${group_name}_${ip_version}_scan_output.txt"
+    local nmap_options="$NMAP_OPTIONS"
+
+    if [ "$ip_version" == "IPv6" ]; then
+        nmap_options="$nmap_options -6"
+    fi
+
+    print_status "Starting $group_name scan on $target_ip ($ip_version)..."
+    nmap $nmap_options \
         --script "$group_scripts" \
         --script-args="$group_script_args" \
-        -p "$group_ports" "$TARGET" --min-rate=100 --randomize-hosts -oN "$output_file" -vv &
+        -p "$group_ports" "$target_ip" --min-rate=100 --randomize-hosts -oN "$output_file" -vv &
     spinner "$group_name"
-    print_verbose "Nmap command executed for $group_name: nmap $NMAP_OPTIONS --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$group_ports\" $TARGET --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
+    print_verbose "Nmap command executed for $group_name ($ip_version): nmap $nmap_options --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$group_ports\" $target_ip --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
 }
 
-# Execute groups in parallel
-run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS" "$WEB_PORTS" &
-run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS" "$AUTH_PORTS" &
-run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS" "$DATABASE_PORTS" &
-run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS" "$COMMON_PORTS" &
-run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS" "$VULN_PORTS" &
+# Execute scans in parallel for IPv4 and IPv6
+run_scans() {
+    local ip_version="$1"
+    local target_ip="$2"
 
+    # Run predefined scan groups
+    run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS" "$WEB_PORTS" "$ip_version" "$target_ip" &
+    run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS" "$AUTH_PORTS" "$ip_version" "$target_ip" &
+    run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS" "$DATABASE_PORTS" "$ip_version" "$target_ip" &
+    run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS" "$COMMON_PORTS" "$ip_version" "$target_ip" &
+    run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS" "$VULN_PORTS" "$ip_version" "$target_ip" &
 
-# Run the custom group if defined
-if [ -n "$CUSTOM_NMAP_SCRIPTS" ]; then
-    if ! nmap --script-help="$CUSTOM_NMAP_SCRIPTS" > /dev/null 2>&1; then
-        print_warning "Custom scripts not found or invalid: $CUSTOM_NMAP_SCRIPTS"
-    else
-        run_scan_group "custom" "$CUSTOM_NMAP_SCRIPTS" "$CUSTOM_NMAP_SCRIPT_ARGS" "$CUSTOM_PORTS"
+    # Run the custom group if defined
+    if [ -n "$CUSTOM_NMAP_SCRIPTS" ]; then
+        if ! nmap --script-help="$CUSTOM_NMAP_SCRIPTS" > /dev/null 2>&1; then
+            print_warning "Custom scripts not found or invalid: $CUSTOM_NMAP_SCRIPTS"
+        else
+            run_scan_group "custom" "$CUSTOM_NMAP_SCRIPTS" "$CUSTOM_NMAP_SCRIPT_ARGS" "$CUSTOM_PORTS" "$ip_version" "$target_ip" &
+        fi
     fi
-fi
+}
 
+# Run for IPv4
+run_scans "IPv4" "$TARGET"
+
+if [ "$IPV6_SUPPORTED" = true ]; then
+    run_scans "IPv6" "$TARGET"
+fi
 
 # Run Nikto scan on IPv4 only (since it's more likely for a web server)
 run_nikto_scan() {
@@ -314,7 +348,7 @@ function lookup_cve_details() {
     echo "$cve_description,$cve_impact_score"
 }
 
-function generate_html_report() {
+generate_html_report() {
     print_status "Generating HTML report..."
     echo "<html><head><title>Scan Report for $TARGET</title>" > "$HTML_REPORT_FILE"
     echo "<style>
@@ -329,7 +363,7 @@ function generate_html_report() {
     echo "<p><strong>Scan Date:</strong> $(date)</p>" >> "$HTML_REPORT_FILE"
 
     # Summary of Findings
-    echo "<div class=\\"scan-section\\"><h2>Summary of Findings</h2><pre>" >> "$HTML_REPORT_FILE"
+    echo "<div class=\"scan-section\"><h2>Summary of Findings</h2><pre>" >> "$HTML_REPORT_FILE"
     grep "open\\|closed\\|filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Total number of ports scanned: " >> "$HTML_REPORT_FILE"
     grep "open" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Open ports: " >> "$HTML_REPORT_FILE"
     grep "filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Filtered ports: " >> "$HTML_REPORT_FILE"
@@ -337,34 +371,34 @@ function generate_html_report() {
     echo "Recommendations: Review and secure any open ports, apply necessary patches for vulnerabilities, and close unnecessary ports." >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
-    # Include IPv4 scan results
-    echo "<div class=\\"scan-section\\"><h2>Scan Results (IPv4)</h2><pre>" >> "$HTML_REPORT_FILE"
-    cat "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
-    echo "</pre></div>" >> "$HTML_REPORT_FILE"
-
-    # Include IPv6 scan results if available
-    if [ "$IPV6_SUPPORTED" = true ] && [ -n "$ipv6" ]; then
-        echo "<div class=\\"scan-section\\"><h2>Scan Results (IPv6)</h2><pre>" >> "$HTML_REPORT_FILE"
-        cat "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
-        echo "</pre></div>" >> "$HTML_REPORT_FILE"
-    fi
+    # Iterate over scan groups and IP versions
+    for ip_version in IPv4 IPv6; do
+        for group_name in web auth database common vuln; do
+            local output_file="${TARGET}_${group_name}_${ip_version}_scan_output.txt"
+            if [ -f "$output_file" ]; then
+                echo "<div class=\"scan-section\"><h2>${group_name^} Scan Results ($ip_version)</h2><pre>" >> "$HTML_REPORT_FILE"
+                cat "$output_file" >> "$HTML_REPORT_FILE"
+                echo "</pre></div>" >> "$HTML_REPORT_FILE"
+            fi
+        done
+    done
 
     # Service Detection Results
-    echo "<div class=\\"scan-section\\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
+    echo "<div class=\"scan-section\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
     grep -E "^([0-9]{1,5}/tcp)" "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Include Nikto Scan Results
     if [ -f "$NIKTO_OUTPUT_FILE" ]; then
-        echo "<div class=\\"scan-section\\"><h2>Nikto Scan Results</h2><pre>" >> "$HTML_REPORT_FILE"
+        echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><pre>" >> "$HTML_REPORT_FILE"
         cat "$NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
         echo "</pre></div>" >> "$HTML_REPORT_FILE"
     else
-        echo "<div class=\\"scan-section\\"><h2>Nikto Scan Results</h2><p>No Nikto results found.</p></div>" >> "$HTML_REPORT_FILE"
+        echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><p>No Nikto results found.</p></div>" >> "$HTML_REPORT_FILE"
     fi
 
     # Detailed Vulnerability Information
-    echo "<div class=\\"scan-section\\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
+    echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
 
     # Parsing vulnerabilities from the Nmap output
     grep -E "VULNERABLE|vuln|Warning|open" "$FINAL_OUTPUT_FILE" | while read -r line; do
@@ -386,7 +420,7 @@ function generate_html_report() {
 
         # Filter out any line that contains the "scan initiated" or "Nikto v2." text
         if ! echo "$line" | grep -q "scan initiated\\|Nikto v2."; then
-            echo "<div class=\\"vuln-section\\"><pre>" >> "$HTML_REPORT_FILE"
+            echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
             echo "$line" >> "$HTML_REPORT_FILE"
             echo "<strong>Severity:</strong> $severity<br>" >> "$HTML_REPORT_FILE"
             echo "<strong>CVSS Score:</strong> $cvss_score<br>" >> "$HTML_REPORT_FILE"
