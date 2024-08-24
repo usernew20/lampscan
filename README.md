@@ -18,6 +18,7 @@ The **LAMPscan** is a comprehensive security assessment script designed for LAMP
 - **Customizable Scan Groups**: Users can define a custom group in the configuration file to add additional scans, ensuring flexibility while maintaining safety.
 - **Grouped Nmap Scans**: The script now runs multiple Nmap instances in parallel, grouped into categories like web, auth, database, common, and vuln. Each group has tailored script arguments and specific port ranges, improving scanning efficiency and relevance.
 - **Custom Scan Group**: A dedicated group for custom Nmap scans is available, allowing users to add their own scripts without affecting the predefined groups.
+- **Vulnerability Lookup by Service Version**: The script now looks up CVEs on the NVD API based on detected service versions, adding additional CVE details to the report where applicable.
 
 ## Installation
 
@@ -128,7 +129,7 @@ Both the Nmap and Nikto scans are run sequentially, ensuring that each scan comp
 The generated HTML report contains:
 - **Nmap Scan Results**: Details about open ports, running services, and potential vulnerabilities.
 - **Nikto Scan Results**: Information about web server vulnerabilities and other potential security issues.
-- **Vulnerability Information**: Relevant CVEs and their details based on the scan results.
+- **Vulnerability Information**: Relevant CVEs and their details based on the scan results, including CVE lookups by service version.
 - **Grouped Scan Results**: The HTML report now includes detailed results from each scan group, providing a comprehensive overview of the security assessment.
 
 ## License

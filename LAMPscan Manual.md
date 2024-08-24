@@ -12,6 +12,7 @@
 - **Group-Specific Port Scanning**: Each scan group (web, auth, database, common, vuln, custom) now uses its own predefined set of ports, improving the precision and relevance of the security assessment.
 - **Parallel Nmap Scanning**: The script supports running Nmap scans in parallel, grouped into categories like web, auth, database, common, and vuln, enhancing the efficiency of the scanning process.
 - **Customizable Scan Groups**: A "custom" group is available for user-defined scans, allowing additional Nmap scripts to be run safely without affecting the predefined groups.
+- **CVE Lookup by Service Version**: Automatically queries the NVD for known vulnerabilities associated with the service versions detected during the scan, enhancing the comprehensiveness of the vulnerability assessment.
 - **Detailed Logging with Verbose Option**: Includes a `VERBOSE` logging level, providing comprehensive logs that detail every action taken, including the specific commands executed and their outputs.
 - **Professional HTML Reports**: Generates detailed HTML reports that include scan results, service detection results, and vulnerability details, with relevant CVE lookups where applicable.
 - **Enhanced Error Handling**: Improved handling of missing commands and configuration issues ensures robust operation and clear error messages.
@@ -90,7 +91,7 @@ LAMPscan is highly configurable through the `lampscan.conf` file. This file allo
 The `lampscan.conf` file is created automatically if it doesn't exist. Below is the default configuration:
 
 ```bash
-NMAP_OPTIONS="-Pn -sC -A"
+NMAP_OPTIONS="-Pn -sC -A -sV"
 
 # Group-specific Nmap scripts
 WEB_NMAP_SCRIPTS="http-enum,http-vuln*,http-wordpress*,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts"
@@ -159,7 +160,7 @@ The HTML report provides a detailed overview of the scan results, including:
 
 - **Summary of Findings**: Overview of scanned ports and their status.
 - **Grouped Scan Results**: The HTML report now includes detailed results from each scan group (web, auth, database, common, vuln), with each group targeting specific ports, providing a comprehensive and focused overview of the security assessment.
-- **Detailed Vulnerability Information**: Lists vulnerabilities detected by Nmap and Nikto, along with CVE details.
+- **Detailed Vulnerability Information**: Now includes CVE details not only from Nmap-detected vulnerabilities but also from a secondary lookup based on detected service versions. This dual-layer lookup ensures that all potential vulnerabilities are identified.
 - **Nikto Scan Results**: Specific vulnerabilities identified by Nikto during the web server scan.
 - **Scan Environment Details**: Information on the Nmap and Nikto versions, scripts used, and scanning host environment.
 
@@ -175,6 +176,10 @@ All scan activities are logged in a log file, which is useful for troubleshootin
 
 Users can modify the `lampscan.conf` file to adjust the scanning behavior. For instance, you can change the Nmap options to include more aggressive scanning or add specific Nikto plugins to focus on particular vulnerabilities.
 
+### **Enhanced CVE Lookups**
+
+LAMPscan now includes a feature that performs an additional CVE lookup based on the version of services detected by Nmap. This allows for identifying vulnerabilities specific to the software versions in use, providing a more complete security assessment.
+
 ### **Integrating with CI/CD Pipelines**
 
 LAMPscan can be integrated into CI/CD pipelines to automate security checks during the development process. By running LAMPscan as part of your build process, you can ensure that vulnerabilities are identified and addressed before deployment.
@@ -189,11 +194,27 @@ Modify the `CUSTOM_NMAP_SCRIPTS` and `CUSTOM_NMAP_SCRIPT_ARGS` in `lampscan.conf
 
 ### **Common Issues**
 
-- **Missing Dependencies**: Ensure all required tools are installed.
-- **Permission Issues**: Run the script with `sudo` to ensure it has the necessary permissions.
-- **Invalid Configuration**: Double-check the `lampscan.conf` file for syntax errors or invalid options.
-- **Custom Group Issues**: If custom scripts in the `CUSTOM_NMAP_SCRIPTS` variable are not found or incorrectly defined, the script will issue a warning. Ensure that the paths and script names are correct.
+- **Missing Dependencies**: Ensure all required
 
-### **Contact and Support**
+tools (Nmap, Nikto, curl, jq, dig, ping6) are installed.
+- **Configuration Errors**: Verify that the `lampscan.conf` file is correctly formatted and contains valid options.
+- **Insufficient Permissions**: Ensure the script is run with `sudo` to allow full scanning capabilities, especially for privileged ports.
+- **Network Connectivity**: Ensure the target is reachable and that there are no network issues preventing the scan from running.
 
-For further assistance, please raise an issue on the LAMPscan repository or contact the maintainers directly.
+### **CVE Lookup Issues**
+
+- **API Access Issues**: Ensure that the script has network access and that the API key for NVD (if required) is correctly configured.
+- **JSON Parsing Errors**: If the script encounters invalid JSON from the NVD API, it will log a warning. Check your internet connection and API limits.
+- **403 Forbidden Errors**: These may occur if the NVD API rate limit is exceeded or if access is blocked. Retry after some time or check your network settings.
+
+---
+
+## **Contributing**
+
+We welcome contributions from the community. If you'd like to add new features, fix bugs, or improve the documentation, please fork the repository and submit a pull request.
+
+---
+
+## **License**
+
+LAMPscan is released under the MIT License. See the LICENSE file for more details.
