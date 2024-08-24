@@ -79,7 +79,7 @@ load_config() {
 create_default_config() {
     cat <<EOL > lampscan.conf
 # Default Nmap options
-NMAP_OPTIONS="-Pn -sC -A"
+NMAP_OPTIONS="-Pn -sC -A -sV"
 
 # Group-specific Nmap scripts
 WEB_NMAP_SCRIPTS="http-enum,http-vuln*,http-wordpress*,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts"
@@ -385,8 +385,14 @@ generate_html_report() {
 
     # Service Detection Results
     echo "<div class=\"scan-section\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep -E "^([0-9]{1,5}/tcp)" "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
+    grep -E "^([0-9]{1,5}/(tcp|udp))" "$FINAL_OUTPUT_FILE" | while read -r line; do
+        port=$(echo "$line" | awk '{print $1}')
+        service=$(echo "$line" | awk '{print $3}')
+        version=$(echo "$line" | cut -d ' ' -f 4-)
+        echo "$port $service $version" >> "$HTML_REPORT_FILE"
+    done
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
+
 
     # Include Nikto Scan Results
     if [ -f "$NIKTO_OUTPUT_FILE" ]; then
