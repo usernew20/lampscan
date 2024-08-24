@@ -94,12 +94,13 @@ DATABASE_NMAP_SCRIPT_ARGS="ftp-anon.maxlist=10"
 COMMON_NMAP_SCRIPT_ARGS=""
 VULN_NMAP_SCRIPT_ARGS=""
 
-# Ports to scan
-NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
-
-# Custom group scripts (can be defined by the user)
-CUSTOM_NMAP_SCRIPTS=""
-CUSTOM_NMAP_SCRIPT_ARGS=""
+# Ports to scan by group
+WEB_PORTS="80,443,8080,8443"
+AUTH_PORTS="389,636"
+DATABASE_PORTS="3306,5432,1433,1521"
+COMMON_PORTS="22,21,53,445"
+VULN_PORTS="25,110,143,993,995,1194,500,4500"
+CUSTOM_PORTS=""
 
 # Nikto scan options
 NIKTO_OPTIONS="-Tuning 1 -ssl"
@@ -232,16 +233,18 @@ run_scan_group() {
     local group_name="$1"
     local group_scripts="$2"
     local group_script_args="$3"
+    local group_ports="$4"  # New parameter for ports
     local output_file="${TARGET}_${group_name}_scan_output.txt"
 
     print_status "Starting $group_name scan on $TARGET..."
     nmap $NMAP_OPTIONS \
         --script "$group_scripts" \
         --script-args="$group_script_args" \
-        -p "$NMAP_PORTS" "$TARGET" --min-rate=100 --randomize-hosts -oN "$output_file" -vv &
+        -p "$group_ports" "$TARGET" --min-rate=100 --randomize-hosts -oN "$output_file" -vv &
     spinner "$group_name"
-    print_verbose "Nmap command executed for $group_name: nmap $NMAP_OPTIONS --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$NMAP_PORTS\" $TARGET --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
+    print_verbose "Nmap command executed for $group_name: nmap $NMAP_OPTIONS --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$group_ports\" $TARGET --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
 }
+
 
 # Group definitions
 WEB_NMAP_SCRIPTS="http-enum,http-vuln*,http-wordpress*,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts"
@@ -260,20 +263,22 @@ VULN_NMAP_SCRIPT_ARGS=""
 CUSTOM_NMAP_SCRIPT_ARGS="$CUSTOM_NMAP_SCRIPT_ARGS"
 
 # Execute groups in parallel
-run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS" &
-run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS" &
-run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS" &
-run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS" &
-run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS" &
+run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS" "$WEB_PORTS" &
+run_scan_group "auth" "$AUTH_NMAP_SCRIPTS" "$AUTH_NMAP_SCRIPT_ARGS" "$AUTH_PORTS" &
+run_scan_group "database" "$DATABASE_NMAP_SCRIPTS" "$DATABASE_NMAP_SCRIPT_ARGS" "$DATABASE_PORTS" &
+run_scan_group "common" "$COMMON_NMAP_SCRIPTS" "$COMMON_NMAP_SCRIPT_ARGS" "$COMMON_PORTS" &
+run_scan_group "vuln" "$VULN_NMAP_SCRIPTS" "$VULN_NMAP_SCRIPT_ARGS" "$VULN_PORTS" &
+
 
 # Run the custom group if defined
 if [ -n "$CUSTOM_NMAP_SCRIPTS" ]; then
     if ! nmap --script-help="$CUSTOM_NMAP_SCRIPTS" > /dev/null 2>&1; then
         print_warning "Custom scripts not found or invalid: $CUSTOM_NMAP_SCRIPTS"
     else
-        run_scan_group "custom" "$CUSTOM_NMAP_SCRIPTS" "$CUSTOM_NMAP_SCRIPT_ARGS"
+        run_scan_group "custom" "$CUSTOM_NMAP_SCRIPTS" "$CUSTOM_NMAP_SCRIPT_ARGS" "$CUSTOM_PORTS"
     fi
 fi
+
 
 # Run Nikto scan on IPv4 only (since it's more likely for a web server)
 run_nikto_scan() {

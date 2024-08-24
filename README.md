@@ -13,11 +13,11 @@ The **LAMPscan** is a comprehensive security assessment script designed for LAMP
 - **Professional HTML Reports**: Generates detailed HTML reports that include scan results, service detection results, and vulnerability details, with relevant CVE lookups where applicable.
 - **Enhanced Error Handling**: Improved handling of missing commands and configuration issues ensures robust operation and clear error messages.
 - **File Ownership and Cleanup**: Ensures that all generated files are owned by the user running the script and that temporary files are properly cleaned up after the scan completes.
+- **Group-Specific Port Scanning**: Each scan group (web, auth, database, common, vuln, custom) now uses its own predefined set of ports, improving the precision and relevance of the security assessment.
 - **Parallel Nmap Scanning**: Nmap scans are now organized into meaningful groups (web, auth, database, common, vuln) and run in parallel to enhance performance.
 - **Customizable Scan Groups**: Users can define a custom group in the configuration file to add additional scans, ensuring flexibility while maintaining safety.
-- **Grouped Nmap Scans**: The script now runs multiple Nmap instances in parallel, grouped into categories like web, auth, database, common, and vuln. Each group has tailored script arguments and ports, improving scanning efficiency.
+- **Grouped Nmap Scans**: The script now runs multiple Nmap instances in parallel, grouped into categories like web, auth, database, common, and vuln. Each group has tailored script arguments and specific port ranges, improving scanning efficiency and relevance.
 - **Custom Scan Group**: A dedicated group for custom Nmap scans is available, allowing users to add their own scripts without affecting the predefined groups.
-
 
 ## Installation
 
@@ -86,8 +86,13 @@ VULN_NMAP_SCRIPT_ARGS=""
 CUSTOM_NMAP_SCRIPTS=""
 CUSTOM_NMAP_SCRIPT_ARGS=""
 
-# Ports to scan
-NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
+# Ports to scan by group
+WEB_PORTS="80,443,8080,8443"
+AUTH_PORTS="389,636"
+DATABASE_PORTS="3306,5432,1433,1521"
+COMMON_PORTS="22,21,53,445"
+VULN_PORTS="25,110,143,993,995,1194,500,4500"
+CUSTOM_PORTS=""
 
 # Nikto scan options
 NIKTO_OPTIONS="-Tuning 1 -ssl"
@@ -97,7 +102,6 @@ GENERATE_HTML_REPORT="true"
 
 # Log level
 LOG_LEVEL="INFO"  # Change this to "VERBOSE" for more detailed logs
-
 ```
 
 ### Nikto Integration
@@ -126,7 +130,6 @@ The generated HTML report contains:
 - **Nikto Scan Results**: Information about web server vulnerabilities and other potential security issues.
 - **Vulnerability Information**: Relevant CVEs and their details based on the scan results.
 - **Grouped Scan Results**: The HTML report now includes detailed results from each scan group, providing a comprehensive overview of the security assessment.
-
 
 ## License
 

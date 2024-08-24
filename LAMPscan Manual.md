@@ -9,6 +9,7 @@
 - **Automated Nmap and Nikto Scans**: Conducts thorough scans using Nmap for open ports and services, and Nikto for web server vulnerabilities, covering a wide range of potential issues, including those identified by the OWASP Top Ten.
 - **IPv6 Awareness**: Automatically detects and adjusts scans based on IPv6 support on the target machine.
 - **Configurable Scanning**: Fully configurable via the `lampscan.conf` file, allowing users to adjust Nmap options, scripts, and other parameters to suit their environment.
+- **Group-Specific Port Scanning**: Each scan group (web, auth, database, common, vuln, custom) now uses its own predefined set of ports, improving the precision and relevance of the security assessment.
 - **Parallel Nmap Scanning**: The script supports running Nmap scans in parallel, grouped into categories like web, auth, database, common, and vuln, enhancing the efficiency of the scanning process.
 - **Customizable Scan Groups**: A "custom" group is available for user-defined scans, allowing additional Nmap scripts to be run safely without affecting the predefined groups.
 - **Detailed Logging with Verbose Option**: Includes a `VERBOSE` logging level, providing comprehensive logs that detail every action taken, including the specific commands executed and their outputs.
@@ -109,8 +110,13 @@ VULN_NMAP_SCRIPT_ARGS=""
 CUSTOM_NMAP_SCRIPTS=""
 CUSTOM_NMAP_SCRIPT_ARGS=""
 
-# Ports to scan
-NMAP_PORTS="80,443,22,21,3306,8080,8443,25,110,143,993,995,5432,1433,1521,389,636,53,445,1194,500,4500"
+# Ports to scan by group
+WEB_PORTS="80,443,8080,8443"
+AUTH_PORTS="389,636"
+DATABASE_PORTS="3306,5432,1433,1521"
+COMMON_PORTS="22,21,53,445"
+VULN_PORTS="25,110,143,993,995,1194,500,4500"
+CUSTOM_PORTS=""
 
 # Nikto scan options
 NIKTO_OPTIONS="-Tuning 1 -ssl"
@@ -127,7 +133,7 @@ LOG_LEVEL="INFO"  # Change this to "VERBOSE" for more detailed logs
 - **NMAP_OPTIONS**: Nmap options to control the scan's aggressiveness and scope.
 - **Group-Specific Nmap Scripts**: Scripts organized into groups for web, auth, database, common, and vuln, each with tailored script arguments.
 - **Custom Group**: Users can define custom scripts in the `CUSTOM_NMAP_SCRIPTS` variable.
-- **NMAP_PORTS**: Ports to be scanned by Nmap.
+- **Ports to Scan by Group**: Each group (web, auth, database, common, vuln, custom) has its own predefined set of ports.
 - **NIKTO_OPTIONS**: Options to customize the behavior of Nikto.
 - **GENERATE_HTML_REPORT**: Set to `true` to generate an HTML report after the scan.
 
@@ -152,7 +158,7 @@ LOG_LEVEL="INFO"  # Change this to "VERBOSE" for more detailed logs
 The HTML report provides a detailed overview of the scan results, including:
 
 - **Summary of Findings**: Overview of scanned ports and their status.
-- **Grouped Scan Results**: The HTML report now includes detailed results from each scan group (web, auth, database, common, vuln), providing a comprehensive overview of the security assessment.
+- **Grouped Scan Results**: The HTML report now includes detailed results from each scan group (web, auth, database, common, vuln), with each group targeting specific ports, providing a comprehensive and focused overview of the security assessment.
 - **Detailed Vulnerability Information**: Lists vulnerabilities detected by Nmap and Nikto, along with CVE details.
 - **Nikto Scan Results**: Specific vulnerabilities identified by Nikto during the web server scan.
 - **Scan Environment Details**: Information on the Nmap and Nikto versions, scripts used, and scanning host environment.
@@ -191,5 +197,3 @@ Modify the `CUSTOM_NMAP_SCRIPTS` and `CUSTOM_NMAP_SCRIPT_ARGS` in `lampscan.conf
 ### **Contact and Support**
 
 For further assistance, please raise an issue on the LAMPscan repository or contact the maintainers directly.
-
----
