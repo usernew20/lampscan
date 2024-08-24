@@ -244,21 +244,34 @@ print_banner
 
 # Spinner function
 spinner() {
-    local pid=$!
+    local pid=$!  # Process ID of the background task
     local delay=0.1
     local spinstr='|/-\'
     local scan_name="$1"
+    local start_time=$(date +%s)  # Capture the start time
 
     while kill -0 $pid 2>/dev/null; do
+        # Calculate elapsed time
+        local current_time=$(date +%s)
+        local elapsed_time=$((current_time - start_time))
+
+        # Format elapsed time as HH:MM:SS
+        local hours=$((elapsed_time / 3600))
+        local minutes=$(( (elapsed_time % 3600) / 60 ))
+        local seconds=$((elapsed_time % 60))
+        local formatted_time=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
+
+        # Display spinner with elapsed time
         local temp=${spinstr#?}
-        printf " [%c] %s  " "$spinstr" "$scan_name"
+        printf " [%c] %s (%s)  " "$spinstr" "$scan_name" "$formatted_time"
         spinstr=$temp${spinstr%"$temp"}
         sleep $delay
         printf "\r"
     done
-    printf "    \r" # clear spinner after process is done
+    printf "    \r"  # Clear spinner after process is done
     wait $pid
 }
+
 
 
 # Function to run a group scan
