@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# Function to handle errors
+handle_error() {
+    local exit_code=$?
+    local cmd="${BASH_COMMAND}"
+    local line_number="${BASH_LINENO[0]}"
+    echo "An error occurred during the execution of the script."
+    echo "Command: '${cmd}' failed with exit code ${exit_code}."
+    echo "Error occurred on line ${line_number}."
+    echo "Cleaning up..."
+    # Delete temp files
+    rm -f *_output.txt
+    exit $exit_code
+}
+
+# Automatically trap errors and call the handle_error function
+trap 'handle_error' ERR
+
 # ANSI color codes
 BOLD="\033[1m"
 CYAN="\033[36m"
