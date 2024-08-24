@@ -348,6 +348,36 @@ function lookup_cve_details() {
     echo "$cve_description,$cve_impact_score"
 }
 
+# Function to lookup CVEs based on service version
+lookup_cve_by_service_version() {
+    local service_name="$1"
+    local version="$2"
+    local nvd_api_url="https://services.nvd.nist.gov/rest/json/cves/1.0?keyword=$service_name+$version"
+
+    # Fetch CVE details from NVD with proper headers
+    local cve_details
+    cve_details=$(curl -s -H "User-Agent: YourScriptName/1.0" "$nvd_api_url")
+
+    # Debugging: Print the raw API response
+    echo "API Response for $service_name $version: $cve_details" >> "$LOG_FILE"
+
+    # Check if the response is valid JSON
+    if ! echo "$cve_details" | jq empty; then
+        print_warning "Invalid JSON received from NVD API for $service_name $version."
+        return
+    fi
+
+    # Parse the CVE details from the response
+    local cve_list
+    cve_list=$(echo "$cve_details" | jq -r '.result.CVE_Items[] | .cve.CVE_data_meta.ID + " - " + .cve.description.description_data[0].value + " (CVSS Score: " + (.impact.baseMetricV2.cvssV2.baseScore | tostring) + ")"')
+
+    if [ -z "$cve_list" ]; then
+        echo "No CVEs found for $service_name $version."
+    else
+        echo "$cve_list"
+    fi
+}
+
 generate_html_report() {
     print_status "Generating HTML report..."
     echo "<html><head><title>Scan Report for $TARGET</title>" > "$HTML_REPORT_FILE"
@@ -361,15 +391,6 @@ generate_html_report() {
     echo "</head><body>" >> "$HTML_REPORT_FILE"
     echo "<h1>Scan Report for $TARGET</h1>" >> "$HTML_REPORT_FILE"
     echo "<p><strong>Scan Date:</strong> $(date)</p>" >> "$HTML_REPORT_FILE"
-
-    # Summary of Findings
-    echo "<div class=\"scan-section\"><h2>Summary of Findings</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep "open\\|closed\\|filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Total number of ports scanned: " >> "$HTML_REPORT_FILE"
-    grep "open" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Open ports: " >> "$HTML_REPORT_FILE"
-    grep "filtered" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Filtered ports: " >> "$HTML_REPORT_FILE"
-    grep "closed" "$FINAL_OUTPUT_FILE" | wc -l | xargs echo "Closed ports: " >> "$HTML_REPORT_FILE"
-    echo "Recommendations: Review and secure any open ports, apply necessary patches for vulnerabilities, and close unnecessary ports." >> "$HTML_REPORT_FILE"
-    echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     # Iterate over scan groups and IP versions
     for ip_version in IPv4 IPv6; do
@@ -385,16 +406,10 @@ generate_html_report() {
 
     # Service Detection Results
     echo "<div class=\"scan-section\"><h2>Service Detection Results</h2><pre>" >> "$HTML_REPORT_FILE"
-    grep -E "^([0-9]{1,5}/(tcp|udp))" "$FINAL_OUTPUT_FILE" | while read -r line; do
-        port=$(echo "$line" | awk '{print $1}')
-        service=$(echo "$line" | awk '{print $3}')
-        version=$(echo "$line" | cut -d ' ' -f 4-)
-        echo "$port $service $version" >> "$HTML_REPORT_FILE"
-    done
+    grep -E "^([0-9]{1,5}/tcp|udp)" "$FINAL_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
     echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
-
-    # Include Nikto Scan Results
+    # Nikto Scan Results
     if [ -f "$NIKTO_OUTPUT_FILE" ]; then
         echo "<div class=\"scan-section\"><h2>Nikto Scan Results</h2><pre>" >> "$HTML_REPORT_FILE"
         cat "$NIKTO_OUTPUT_FILE" >> "$HTML_REPORT_FILE"
@@ -406,42 +421,40 @@ generate_html_report() {
     # Detailed Vulnerability Information
     echo "<div class=\"scan-section\"><h2>Detailed Vulnerability Information</h2>" >> "$HTML_REPORT_FILE"
 
-    # Parsing vulnerabilities from the Nmap output
-    grep -E "VULNERABLE|vuln|Warning|open" "$FINAL_OUTPUT_FILE" | while read -r line; do
-        # Set default values
-        severity="N/A"
-        cvss_score="N/A"
+    # Collect vulnerabilities from the scan results
+    local vuln_file="${TARGET}_vuln_scan_output.txt"
+    if [ -f "$vuln_file" ]; then
+        while IFS= read -r line; do
+            local severity="N/A"
+            local cvss_score="N/A"
+            local cve_id=""
 
-        # Check if the line contains a CVE identifier
-        if echo "$line" | grep -q "CVE-"; then
-            # Extract the CVE ID
-            cve_id=$(echo "$line" | grep -o "CVE-[0-9]\\+-[0-9]\\+")
-            if [ -n "$cve_id" ]; then
-                # Look up the CVE details from the NVD API
-                cve_info=$(lookup_cve_details "$cve_id")
-                severity=$(echo "$cve_info" | cut -d',' -f1)
-                cvss_score=$(echo "$cve_info" | cut -d',' -f2)
+            # Extract CVE if present
+            if echo "$line" | grep -q "CVE-"; then
+                cve_id=$(echo "$line" | grep -o "CVE-[0-9]\+-[0-9]\+")
+                if [ -n "$cve_id" ]; then
+                    local cve_info=$(lookup_cve_details "$cve_id")
+                    severity=$(echo "$cve_info" | cut -d',' -f1)
+                    cvss_score=$(echo "$cve_info" | cut -d',' -f2)
+                fi
             fi
-        fi
 
-        # Filter out any line that contains the "scan initiated" or "Nikto v2." text
-        if ! echo "$line" | grep -q "scan initiated\\|Nikto v2."; then
+            # Display vulnerability information in the report
             echo "<div class=\"vuln-section\"><pre>" >> "$HTML_REPORT_FILE"
             echo "$line" >> "$HTML_REPORT_FILE"
+            if [ -n "$cve_id" ]; then
+                echo "<strong>CVE:</strong> $cve_id<br>" >> "$HTML_REPORT_FILE"
+            fi
             echo "<strong>Severity:</strong> $severity<br>" >> "$HTML_REPORT_FILE"
             echo "<strong>CVSS Score:</strong> $cvss_score<br>" >> "$HTML_REPORT_FILE"
             echo "</pre></div>" >> "$HTML_REPORT_FILE"
-        fi
-    done
 
-    # If no vulnerabilities found, add a note
-    if ! grep -qE "VULNERABLE|vuln|Warning|open" "$FINAL_OUTPUT_FILE"; then
+        done < "$vuln_file"
+    else
         echo "<p>No vulnerabilities detected during the scan.</p>" >> "$HTML_REPORT_FILE"
     fi
 
     echo "</div>" >> "$HTML_REPORT_FILE"
-
-    echo "</pre></div>" >> "$HTML_REPORT_FILE"
 
     echo "</body></html>" >> "$HTML_REPORT_FILE"
 
