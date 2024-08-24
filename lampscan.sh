@@ -25,7 +25,6 @@ YELLOW="\033[33m"
 RED="\033[31m"
 RESET="\033[0m"
 
-
 # Default log level (INFO)
 LOG_LEVEL="INFO"
 
@@ -122,7 +121,7 @@ VULN_PORTS="25,110,143,993,995,1194,500,4500"
 CUSTOM_PORTS=""
 
 # Nikto scan options
-NIKTO_OPTIONS="-Tuning 1 -ssl"
+NIKTO_OPTIONS="-ssl"
 
 # Report generation
 GENERATE_HTML_REPORT="true"
