@@ -18,7 +18,8 @@ LOG_FILE=""
 log_message() {
     local level="$1"
     local message="$2"
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     if [ "$level" = "ERROR" ]; then
         echo -e "${RED}$message${RESET}"
         if [ -n "$LOG_FILE" ]; then echo "[$timestamp] ERROR: $message" >> "$LOG_FILE"; fi
@@ -70,7 +71,7 @@ load_config() {
     if [ -f "$config_file" ]; then
         source "$config_file"
     else
-        log_message "WARNING" "Configuration file lampscan.conf not found. Creating a default configuration."
+        log_message "WARNING" "Configuration file lampscan.conf not found."
         create_default_config
     fi
 }
@@ -175,7 +176,7 @@ validate_target "$TARGET"
 check_required_commands() {
     local cmds=("nmap" "dig" "ping6" "jq" "curl" "nikto")
     for cmd in "${cmds[@]}"; do
-        if ! command -v $cmd &> /dev/null; then
+        if ! command -v "$cmd" &> /dev/null; then
             print_error "$cmd could not be found. Please install it and try again."
             exit 1
         fi
@@ -200,7 +201,7 @@ MIT License - Use at your own risk!
 ================================================================"
 
     # Print with ANSI coloring to the console
-    echo -e "${BOLD}${CYAN}$(echo "$banner_text")${RESET}"
+    echo -e "${BOLD}${CYAN}$banner_text${RESET}"
 
     # Print without ANSI coloring to the log file
     echo "$banner_text" >> "$LOG_FILE"
@@ -244,23 +245,6 @@ run_scan_group() {
     spinner "$group_name"
     print_verbose "Nmap command executed for $group_name: nmap $NMAP_OPTIONS --script \"$group_scripts\" --script-args=\"$group_script_args\" -p \"$group_ports\" $TARGET --min-rate=100 --randomize-hosts -oN \"$output_file\" -vv"
 }
-
-
-# Group definitions
-WEB_NMAP_SCRIPTS="http-enum,http-vuln*,http-wordpress*,http-phpmyadmin-dir-traversal,http-config-backup,http-vhosts"
-AUTH_NMAP_SCRIPTS="ssh*,ftp*,auth*,ssh-auth-methods"
-DATABASE_NMAP_SCRIPTS="*sql*,mysql*,http-sql-injection"
-COMMON_NMAP_SCRIPTS="*apache*,dns*,smb*,firewall*,ssl-enum-ciphers,ssl-cert"
-VULN_NMAP_SCRIPTS="vuln*,vulners"
-CUSTOM_NMAP_SCRIPTS="$CUSTOM_NMAP_SCRIPTS"
-
-# Group-specific arguments
-WEB_NMAP_SCRIPT_ARGS="http-wordpress-enum.threads=10,http-wordpress-brute.threads=10"
-AUTH_NMAP_SCRIPT_ARGS=""
-DATABASE_NMAP_SCRIPT_ARGS="ftp-anon.maxlist=10"
-COMMON_NMAP_SCRIPT_ARGS=""
-VULN_NMAP_SCRIPT_ARGS=""
-CUSTOM_NMAP_SCRIPT_ARGS="$CUSTOM_NMAP_SCRIPT_ARGS"
 
 # Execute groups in parallel
 run_scan_group "web" "$WEB_NMAP_SCRIPTS" "$WEB_NMAP_SCRIPT_ARGS" "$WEB_PORTS" &
@@ -308,7 +292,8 @@ function lookup_cve_details() {
     local nvd_api_url="https://services.nvd.nist.gov/rest/json/cve/1.0/$cve_id"
 
     # Fetch CVE details from NVD
-    local cve_details=$(curl -s "$nvd_api_url" | jq '.result.CVE_Items[0].cve')
+    local cve_details
+    cve_details=$(curl -s "$nvd_api_url" | jq '.result.CVE_Items[0].cve')
 
     # Check if we got a valid response
     if [[ -z "$cve_details" || "$cve_details" == "null" ]]; then
@@ -318,9 +303,12 @@ function lookup_cve_details() {
     fi
 
     # Extract relevant information from the JSON response
-    local cve_description=$(echo "$cve_details" | jq -r '.description.description_data[0].value')
-    local cve_published_date=$(echo "$cve_details" | jq -r '.publishedDate')
-    local cve_impact_score=$(echo "$cve_details" | jq -r '.impact.baseMetricV2.cvssV2.baseScore // "N/A"')
+    local cve_description
+    cve_description=$(echo "$cve_details" | jq -r '.description.description_data[0].value')
+    #local cve_published_date
+    #cve_published_date=$(echo "$cve_details" | jq -r '.publishedDate')
+    local cve_impact_score
+    cve_impact_score=$(echo "$cve_details" | jq -r '.impact.baseMetricV2.cvssV2.baseScore // "N/A"')
 
     # Return severity and CVSS score
     echo "$cve_description,$cve_impact_score"
